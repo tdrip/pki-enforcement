@@ -1,2 +1,2 @@
 # pki-enforcement
-A Vault plugin that will operate with role enforcement based around the Venafi system
+A Vault plugin that will operate with role enforcement based around the TPP system
