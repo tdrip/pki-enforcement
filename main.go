@@ -6,7 +6,7 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/plugin"
-	pkie "github.com/tdrip/pki-enforcement/pkg"
+	pki "github.com/tdrip/pki-enforcement/pkg"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	tlsProviderFunc := api.VaultPluginTLSProvider(tlsConfig)
 
 	if err := plugin.Serve(&plugin.ServeOpts{
-		BackendFactoryFunc: pkie.FactoryV2,
+		BackendFactoryFunc: pki.FactoryV2,
 		TLSProviderFunc:    tlsProviderFunc,
 	}); err != nil {
 		logger := hclog.New(&hclog.LoggerOptions{})
