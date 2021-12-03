@@ -3,6 +3,8 @@ package pkie
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	pki "github.com/hashicorp/vault/builtin/logical/pki"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -41,4 +43,13 @@ func FactoryV2(ctx context.Context, conf *logical.BackendConfig) (logical.Backen
 		return nil, err
 	}
 	return b, nil
+}
+
+type ebackend struct {
+	*framework.Backend
+
+	storage           logical.Storage
+	crlLifetime       time.Duration
+	revokeStorageLock sync.RWMutex
+	tidyCASGuard      *uint32
 }
