@@ -1,4 +1,4 @@
-package pkiepath
+package pkie
 
 import (
 	"context"
