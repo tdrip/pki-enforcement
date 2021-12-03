@@ -2,6 +2,7 @@ package pkie
 
 import (
 	"context"
+	"fmt"
 
 	pki "github.com/hashicorp/vault/builtin/logical/pki"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -16,7 +17,7 @@ func FactoryV2(ctx context.Context, conf *logical.BackendConfig) (logical.Backen
 
 	//update the standard pki backend with the alternative
 
-	for _, path := range b.Paths {
+	for _, path := range b.Backend.Paths {
 
 		// match on the roles
 		// we need to replace the "create"
@@ -24,11 +25,13 @@ func FactoryV2(ctx context.Context, conf *logical.BackendConfig) (logical.Backen
 		if path.Pattern == "roles/"+framework.GenericNameRegex("name") {
 
 			// update the callbacks or just rebuild?
+			fmt.Println(path.Pattern)
 			path.Callbacks = map[logical.Operation]framework.OperationFunc{
-				logical.ReadOperation:   path.pathRoleRead,
-				logical.UpdateOperation: path.pathRoleCreate,
-				logical.DeleteOperation: path.pathRoleDelete,
+				logical.ReadOperation:   pkiepath.pathRoleRead,
+				logical.UpdateOperation: pkiepath.pathRoleCreate,
+				logical.DeleteOperation: pkiepath.pathRoleDelete,
 			}
+
 		}
 
 	}

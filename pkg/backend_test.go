@@ -23,7 +23,7 @@ func TestBackend(t *testing.T) {
 		t.Fatalf("Unable to create backend: %s", err)
 	}
 
-	for _, v := range b.Paths {
+	for _, v := range b.SpecialPaths().LocalStorage {
 		t.Log(v)
 	}
 
