@@ -52,8 +52,13 @@ func Backend(conf *logical.BackendConfig) *backend {
 		},
 
 		Paths: []*framework.Path{
+			// Standard List Roles
 			pathListRoles(&b),
-			pathRoles(&b),
+
+			// Enforcement Roles
+			pathEnforceRoles(&b),
+
+			// Standard PKI paths
 			pathGenerateRoot(&b),
 			pathSignIntermediate(&b),
 			pathSignSelfIssued(&b),
@@ -75,6 +80,9 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathFetchListCerts(&b),
 			pathRevoke(&b),
 			pathTidy(&b),
+
+			//Custom Paths
+
 		},
 
 		Secrets: []*framework.Secret{

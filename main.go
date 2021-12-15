@@ -18,7 +18,7 @@ func main() {
 	tlsProviderFunc := api.VaultPluginTLSProvider(tlsConfig)
 
 	if err := plugin.Serve(&plugin.ServeOpts{
-		BackendFactoryFunc: pki.FactoryV2,
+		BackendFactoryFunc: pki.Factory,
 		TLSProviderFunc:    tlsProviderFunc,
 	}); err != nil {
 		logger := hclog.New(&hclog.LoggerOptions{})
