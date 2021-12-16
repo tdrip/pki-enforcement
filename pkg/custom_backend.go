@@ -83,10 +83,6 @@ func Backend(conf *logical.BackendConfig) *backend {
 			//VENAFI PATHS
 			pathImportQueue(&b),
 			pathImportQueueList(&b),
-			pathVenafiPolicy(&b),
-			pathVenafiPolicyContent(&b),
-			pathVenafiPolicyList(&b),
-			pathVenafiPolicyMap(&b),
 			pathVenafiPolicySync(&b),
 
 			pathRevoke(&b),
