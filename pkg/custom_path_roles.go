@@ -546,7 +546,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	// Vault has policy
 	// we shall stick to zone so that it is clear
 	// this is a venafi zone (path in a venafi platform)
-	zoneEntry := &venafiPolicyEntry{}
+	zoneEntry := &venafiZoneEntry{}
 
 	entry := &roleEntry{
 		MaxTTL:                        time.Duration(data.Get("max_ttl").(int)) * time.Second,
@@ -792,7 +792,7 @@ type roleEntry struct {
 	// Vault has policy
 	// we shall stick to zone so that it is clear
 	// this is a venafi zone (path in a venafi platform)
-	VenafiZone *venafiPolicyEntry `json:"venafi_zone"`
+	VenafiZone *venafiZoneEntry `json:"venafi_zone"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
