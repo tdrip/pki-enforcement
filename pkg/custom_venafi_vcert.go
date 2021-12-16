@@ -17,6 +17,50 @@ const venafiPolicyCheck = true
 
 var venafiPolicyDenyAll = true
 
+func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, policyName string, roleName string) (
+	endpoint.Connector, error) {
+
+	// this will need to be changed
+	if policyName == "" {
+		return nil, fmt.Errorf("empty policy name")
+	}
+
+	config, err := b.getVenafiPolicyConfig(ctx, s, policyName)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, fmt.Errorf("expected policy but got nil from Vault storage %v", config)
+	}
+	if config.VenafiSecret == "" {
+		return nil, fmt.Errorf("empty Venafi secret name")
+	}
+
+	secret, err := b.getVenafiSecret(ctx, s, config.VenafiSecret)
+	if err != nil {
+		return nil, err
+	}
+	if secret == nil {
+		return nil, fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
+	}
+
+	// We will use the zone of the client and add the role name to this zone to get the details
+	// this makes for a simpler implementation
+
+	zone := ""
+
+	if config.Zone != "" {
+		b.Logger().Debug("Using zone from Venafi Policy.", "zone", config.Zone)
+		zone = config.Zone + "\\" + roleName
+	} else {
+		b.Logger().Debug("Using zone from Venafi secret since Policy zone not found.", "zone", secret.Zone)
+		zone = secret.Zone + "\\" + roleName
+	}
+
+	return secret.getConnection(zone)
+
+}
+
 func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyName string) (
 	endpoint.Connector, error) {
 
