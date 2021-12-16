@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+
 	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
-	"io/ioutil"
-	"log"
 )
 
 //Set it false to disable Venafi policy check. It can be done only on the code level of the plugin.
 const venafiPolicyCheck = true
+
 var venafiPolicyDenyAll = true
 
 func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyName string) (
