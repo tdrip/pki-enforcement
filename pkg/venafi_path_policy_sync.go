@@ -3,14 +3,15 @@ package pki
 import (
 	"context"
 	"fmt"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/hashicorp/vault/sdk/framework"
-	hconsts "github.com/hashicorp/vault/sdk/helper/consts"
-	"github.com/hashicorp/vault/sdk/logical"
 	"log"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Venafi/vcert/v4/pkg/endpoint"
+	"github.com/hashicorp/vault/sdk/framework"
+	hconsts "github.com/hashicorp/vault/sdk/helper/consts"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 const venafiSyncPolicyListPath = "venafi-sync-policies"
@@ -282,7 +283,7 @@ func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Sto
 		//validate if the error is related to a expired accces token, at this moment the only way can validate this is using the error message
 		//and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
-		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg){
+		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 			cfg, err := b.getConfig(ctx, &storage, policyConfig)
 
 			if err != nil {
