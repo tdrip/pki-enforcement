@@ -503,7 +503,9 @@ func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data
 	if err != nil {
 		return nil, err
 	}
-
+	//Cleanup Venafi import if defined
+	roleName := data.Get("name").(string)
+	b.cleanupImportToTPP(roleName, ctx, req)
 	return nil, nil
 }
 
@@ -578,6 +580,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		PolicyIdentifiers:             data.Get("policy_identifiers").([]string),
 		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
 		NotBeforeDuration:             time.Duration(data.Get("not_before_duration").(int)) * time.Second,
+		Name:                          name,
 	}
 
 	allowedOtherSANs := data.Get("allowed_other_sans").([]string)
@@ -776,6 +779,7 @@ type roleEntry struct {
 
 	// Used internally for signing intermediates
 	AllowExpirationPastCA bool
+	Name                  string `json:"name"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
