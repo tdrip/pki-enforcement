@@ -6,17 +6,18 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/verror"
 	"github.com/hashicorp/vault/sdk/framework"
 	hconsts "github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
-	"log"
-	"regexp"
-	"strings"
-	"sync"
-	"time"
 )
 
 //Jobs tructure for import queue worker
@@ -28,7 +29,7 @@ type Job struct {
 	importPath string
 	ctx        context.Context
 	//req        *logical.Request
-	storage *logical.Storage
+	storage                *logical.Storage
 	importOnlyNonCompliant bool
 }
 
@@ -140,13 +141,13 @@ func (b *backend) fillImportQueueTask(roleName string, policyName string, noOfWo
 	for i, entry := range entries {
 		log.Printf("%s Allocating job for entry %s", logPrefixVenafiImport, entry)
 		job := Job{
-			id:         i,
-			entry:      entry,
-			importPath: importPath,
-			roleName:   roleName,
-			policyName: policyName,
-			storage:    &storage,
-			ctx:        ctx,
+			id:                     i,
+			entry:                  entry,
+			importPath:             importPath,
+			roleName:               roleName,
+			policyName:             policyName,
+			storage:                &storage,
+			ctx:                    ctx,
 			importOnlyNonCompliant: importOnlyNonCompliant,
 		}
 		jobs <- job
@@ -363,8 +364,6 @@ func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, policyName string
 	req.DNSNames = cert.DNSNames
 	req.IPAddresses = cert.IPAddresses
 	req.URIs = cert.URIs
-
-
 
 	entry, err := b.storage.Get(context.Background(), venafiPolicyPath+policyName+"/policy")
 	if err != nil {
