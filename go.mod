@@ -3,6 +3,7 @@ module github.com/tdrip/pki-enforcement
 go 1.17
 
 require (
+	github.com/Venafi/vcert/v4 v4.16.1
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/fatih/structs v1.1.0
 	github.com/go-test/deep v1.0.8
@@ -12,7 +13,7 @@ require (
 	github.com/hashicorp/vault/sdk v0.3.1-0.20211115191300-f5c187a79605
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/ryanuber/go-glob v1.0.0
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/net v0.0.0-20211020060615-d418f374d309
 )
 
@@ -152,6 +153,7 @@ require (
 	github.com/tklauser/numcpus v0.3.0 // indirect
 	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
 	github.com/vmware/govmomi v0.18.0 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
