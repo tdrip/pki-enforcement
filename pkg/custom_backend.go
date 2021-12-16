@@ -48,6 +48,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 
 			SealWrapStorage: []string{
 				"config/ca_bundle",
+				"venafi-policy",
 			},
 		},
 
@@ -78,6 +79,16 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathFetchCRLViaCertPath(&b),
 			pathFetchValid(&b),
 			pathFetchListCerts(&b),
+
+			//VENAFI PATHS
+			pathImportQueue(&b),
+			pathImportQueueList(&b),
+			pathVenafiPolicy(&b),
+			pathVenafiPolicyContent(&b),
+			pathVenafiPolicyList(&b),
+			pathVenafiPolicyMap(&b),
+			pathVenafiPolicySync(&b),
+
 			pathRevoke(&b),
 			pathTidy(&b),
 
@@ -96,6 +107,16 @@ func Backend(conf *logical.BackendConfig) *backend {
 	b.tidyCASGuard = new(uint32)
 	b.storage = conf.StorageView
 
+	// VENAFI
+	//Don't start import queue on tests which are using nil storage
+	if b.storage == nil {
+		//log.Println("Can't start queue when storage is nil")
+	} else {
+		b.taskStorage.init()
+		b.importToTPP(conf)
+		b.syncRoleWithVenafiPolicyRegister(conf)
+	}
+
 	return &b
 }
 
@@ -106,6 +127,9 @@ type backend struct {
 	crlLifetime       time.Duration
 	revokeStorageLock sync.RWMutex
 	tidyCASGuard      *uint32
+	// VENAFI
+	taskStorage taskStorageStruct
+	mux         sync.Mutex
 }
 
 const backendHelp = `
