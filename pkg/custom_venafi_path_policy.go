@@ -7,13 +7,14 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"log"
+	"regexp"
+	"strings"
+
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"log"
-	"regexp"
-	"strings"
 )
 
 const (
@@ -708,7 +709,7 @@ func checkAgainstVenafiPolicy(
 	}
 
 	venafiEnforcementPolicy := policyMap.Roles[role.Name].EnforcementPolicy
-	if venafiEnforcementPolicy == "" && venafiPolicyDenyAll{
+	if venafiEnforcementPolicy == "" && venafiPolicyDenyAll {
 		venafiEnforcementPolicy = defaultVenafiPolicyName
 	}
 
@@ -943,11 +944,11 @@ func checkCSR(isCA bool, csr *x509.CertificateRequest, policy venafiPolicyEntry)
 			keyValid = checkKey("ecdsa", 0, pubkey.Curve.Params().Name, policy.AllowedKeyConfigurations)
 		}
 	}
-		if !keyValid {
-			return fmt.Errorf("key type is not allowed by Venafi policies")
-		}
-		return nil
+	if !keyValid {
+		return fmt.Errorf("key type is not allowed by Venafi policies")
 	}
+	return nil
+}
 
 func (b *backend) getVenafiPolicyConfig(ctx context.Context, s *logical.Storage, n string) (*venafiPolicyConfigEntry, error) {
 	entry, err := (*s).Get(ctx, venafiPolicyPath+n)
