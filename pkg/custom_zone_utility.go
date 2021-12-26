@@ -1,11 +1,13 @@
 package pki
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -261,4 +263,69 @@ func NewVenafiZoneEntry() *venafiZoneEntry {
 	ve := venafiZoneEntry{}
 
 	return &ve
+}
+
+func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
+	log.Printf("%s Creating Venafi client", logPrefixVenafiPolicyEnforcement)
+
+	cl, err := b.RoleBasedClientVenafi(ctx, storage, zone, role)
+	if err != nil {
+		return
+	}
+	log.Printf("%s Getting policy from Venafi endpoint", logPrefixVenafiPolicyEnforcement)
+
+	policy, err = cl.ReadPolicyConfiguration()
+	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
+		msg := err.Error()
+
+		//catch the scenario when token is expired and deleted.
+		var regex = regexp.MustCompile("(expired|invalid)_token")
+
+		//validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
+		//and verify if that message describes errors related to expired access token.
+		code := getStatusCode(msg)
+		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
+
+			cfg, err := b.getRoleBasedConfig(ctx, storage, zone, role)
+
+			if err != nil {
+				return nil, err
+			}
+
+			if cfg.Credentials.RefreshToken != "" {
+				err = synchronizedUpdateAccessToken(cfg, b, ctx, storage, zone)
+
+				if err != nil {
+					return nil, err
+				}
+
+				//everything went fine so get the new client with the new refreshed access token
+				cl, err := b.RoleBasedClientVenafi(ctx, storage, zone, role)
+				if err != nil {
+					return nil, err
+				}
+
+				b.Logger().Debug("Making certificate request again")
+
+				policy, err = cl.ReadPolicyConfiguration()
+				if err != nil {
+					return nil, err
+				} else {
+					return policy, nil
+				}
+			} else {
+				err = fmt.Errorf("tried to get new access token but refresh token is empty")
+				return nil, err
+			}
+
+		} else {
+			return nil, err
+		}
+	}
+	if policy == nil {
+		err = fmt.Errorf("expected policy but got nil from Venafi endpoint %v", policy)
+		return
+	}
+
+	return
 }

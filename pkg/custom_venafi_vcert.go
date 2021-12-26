@@ -61,6 +61,41 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 
 }
 
+func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, policyName string, roleName string) (
+	*vcert.Config, error) {
+
+	if policyName == "" {
+		return nil, fmt.Errorf("empty policy name")
+	}
+
+	config, err := b.getVenafiPolicyConfig(ctx, s, policyName)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, fmt.Errorf("expected Policy config but got nil from Vault storage %v", config)
+	}
+	if config.VenafiSecret == "" {
+		return nil, fmt.Errorf("empty Venafi secret name")
+	}
+
+	secret, err := b.getVenafiSecret(ctx, s, config.VenafiSecret)
+	if err != nil {
+		return nil, err
+	}
+	if secret == nil {
+		return nil, fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
+	}
+
+	if config.Zone != "" {
+		b.Logger().Debug("Using zone [%s] from Policy.", config.Zone)
+	} else {
+		b.Logger().Debug("Using zone [%s] from venafi secret. Policy zone not found.", secret.Zone)
+	}
+
+	return secret.getConfig(config.Zone, true)
+}
+
 func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyName string) (
 	endpoint.Connector, error) {
 
