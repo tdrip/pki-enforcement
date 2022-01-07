@@ -235,7 +235,7 @@ func (b *backend) pathReadVenafiPolicyContent(ctx context.Context, req *logical.
 		return logical.ErrorResponse("policy data is nil. Looks like it doesn't exists."), nil
 	}
 
-	var policy venafiPolicyEntry
+	var policy venafiZoneEntry
 	if err := entry.DecodeJSON(&policy); err != nil {
 		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
 		return nil, err
@@ -421,10 +421,10 @@ func (b *backend) updateRolesPolicyAttributes(ctx context.Context, req *logical.
 	return nil
 }
 
-func savePolicyEntry(policy *endpoint.Policy, name string, ctx context.Context, storage *logical.Storage) (policyEntry *venafiPolicyEntry, err error) {
+func savePolicyEntry(policy *endpoint.Policy, name string, ctx context.Context, storage *logical.Storage) (policyEntry *venafiZoneEntry, err error) {
 
 	//Form policy entry for storage
-	policyEntry = &venafiPolicyEntry{
+	policyEntry = &venafiZoneEntry{
 		SubjectCNRegexes:         policy.SubjectCNRegexes,
 		SubjectORegexes:          policy.SubjectORegexes,
 		SubjectOURegexes:         policy.SubjectOURegexes,
@@ -453,7 +453,7 @@ func savePolicyEntry(policy *endpoint.Policy, name string, ctx context.Context, 
 	return policyEntry, nil
 }
 
-func formPolicyRespData(policy venafiPolicyEntry) (respData map[string]interface{}) {
+func formPolicyRespData(policy venafiZoneEntry) (respData map[string]interface{}) {
 	type printKeyConfig struct {
 		KeyType   string
 		KeySizes  []int    `json:",omitempty"`
@@ -729,7 +729,7 @@ func checkAgainstVenafiPolicy(
 		}
 	}
 
-	var policy venafiPolicyEntry
+	var policy venafiZoneEntry
 
 	if err := entry.DecodeJSON(&policy); err != nil {
 		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
@@ -880,7 +880,7 @@ func checkAgainstVenafiPolicy(
 	return nil
 }
 
-func checkCSR(isCA bool, csr *x509.CertificateRequest, policy venafiPolicyEntry) error {
+func checkCSR(isCA bool, csr *x509.CertificateRequest, policy venafiZoneEntry) error {
 	if isCA {
 		if len(csr.EmailAddresses) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 || (len(csr.DNSNames) != 0 &&
 			csr.DNSNames[0] != csr.Subject.CommonName) { //workaround for setting SAN if CA have normal domain in CN
@@ -976,23 +976,6 @@ type venafiPolicyConfigEntry struct {
 	VenafiSecret           string             `json:"venafi_secret"`
 	Zone                   string             `json:"zone"`
 	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
-}
-
-type venafiPolicyEntry struct {
-	SubjectCNRegexes         []string                           `json:"subject_cn_regexes"`
-	SubjectORegexes          []string                           `json:"subject_o_regexes"`
-	SubjectOURegexes         []string                           `json:"subject_ou_regexes"`
-	SubjectSTRegexes         []string                           `json:"subject_st_regexes"`
-	SubjectLRegexes          []string                           `json:"subject_l_regexes"`
-	SubjectCRegexes          []string                           `json:"subject_c_regexes"`
-	AllowedKeyConfigurations []endpoint.AllowedKeyConfiguration `json:"allowed_key_configurations"`
-	DnsSanRegExs             []string                           `json:"dns_san_regexes"`
-	IpSanRegExs              []string                           `json:"ip_san_regexes"`
-	EmailSanRegExs           []string                           `json:"email_san_regexes"`
-	UriSanRegExs             []string                           `json:"uri_san_regexes"`
-	UpnSanRegExs             []string                           `json:"upn_san_regexes"`
-	AllowWildcards           bool                               `json:"allow_wildcards"`
-	AllowKeyReuse            bool                               `json:"allow_key_reuse"`
 }
 
 const pathVenafiPolicySyn = `help here`
