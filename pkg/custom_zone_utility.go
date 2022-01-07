@@ -265,6 +265,9 @@ func NewVenafiZoneEntry() *venafiZoneEntry {
 	return &ve
 }
 
+func (b *backend) getZoneFromVenafi1(ctx context.Context, storage *logical.Storage, zone string) (policy *endpoint.Policy, err error) {
+	return b.getZoneFromVenafi(ctx, storage, zone, "TODO: ROLE NAME TO COME LATER")
+}
 func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixVenafiPolicyEnforcement)
 

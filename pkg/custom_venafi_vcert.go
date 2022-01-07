@@ -25,7 +25,7 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 		return nil, fmt.Errorf("empty policy name")
 	}
 
-	config, err := b.getVenafiPolicyConfig(ctx, s, policyName)
+	config, err := b.getVenafiZoneConfig(ctx, s, policyName)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, po
 		return nil, fmt.Errorf("empty policy name")
 	}
 
-	config, err := b.getVenafiPolicyConfig(ctx, s, policyName)
+	config, err := b.getVenafiZoneConfig(ctx, s, policyName)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyNa
 		return nil, fmt.Errorf("empty policy name")
 	}
 
-	config, err := b.getVenafiPolicyConfig(ctx, s, policyName)
+	config, err := b.getVenafiZoneConfig(ctx, s, policyName)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (b *backend) getConfig(ctx context.Context, s *logical.Storage, policyName 
 		return nil, fmt.Errorf("empty policy name")
 	}
 
-	config, err := b.getVenafiPolicyConfig(ctx, s, policyName)
+	config, err := b.getVenafiZoneConfig(ctx, s, policyName)
 	if err != nil {
 		return nil, err
 	}

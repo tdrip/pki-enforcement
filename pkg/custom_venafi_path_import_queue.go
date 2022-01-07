@@ -173,46 +173,48 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 		log.Printf("%s Couldn't get list of roles %s", logPrefixVenafiImport, err)
 		return
 	}
-
-	policyMap, err := getPolicyRoleMap(ctx, b.storage)
-	if err != nil {
-		log.Printf("Can't get policy map: %s", err)
-		return
-	}
-
-	for i := range roles {
-		roleName := roles[i]
-		if policyMap.Roles[roleName].ImportPolicy == "" {
-			//no import policy defined for role. Skipping
-			continue
-		}
-
-		//Update role since it's settings may be changed
-		role, err := b.getRole(ctx, b.storage, roleName)
+	/*
+		policyMap, err := getPolicyRoleMap(ctx, b.storage)
 		if err != nil {
-			log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
-			continue
+			log.Printf("Can't get policy map: %s", err)
+			return
 		}
 
-		if role == nil {
-			log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
-			continue
-		}
+		for i := range roles {
+			roleName := roles[i]
+			if policyMap.Roles[roleName].ImportPolicy == "" {
+				//no import policy defined for role. Skipping
+				continue
+			}
 
-		policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
-		if err != nil || policyConfig == nil {
-			log.Printf("%s Error getting policy %v: %v\n Exiting.", logPrefixVenafiImport, policyMap.Roles[roleName].ImportPolicy, err)
-			continue
-		}
-		b.taskStorage.register(fillQueuePrefix+roleName, func() {
-			log.Printf("%s run queue filler %s", logPrefixVenafiImport, roleName)
-			//get the policy config here, since this is on the scoupe of this anonymous methods, this will
-			//solve an issue with the ImportOnlyNonCompliant that doesn't hold the correct value.
-			policyConfig, _ := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
-			b.fillImportQueueTask(roleName, policyMap.Roles[roleName].ImportPolicy, policyConfig.VenafiImportWorkers, b.storage, policyConfig.ImportOnlyNonCompliant, conf)
-		}, 1, time.Duration(policyConfig.VenafiImportTimeout)*time.Second)
+			//Update role since it's settings may be changed
+			role, err := b.getRole(ctx, b.storage, roleName)
+			if err != nil {
+				log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
+				continue
+			}
 
-	}
+			if role == nil {
+				log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
+				continue
+			}
+
+			policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
+			if err != nil || policyConfig == nil {
+				log.Printf("%s Error getting policy %v: %v\n Exiting.", logPrefixVenafiImport, policyMap.Roles[roleName].ImportPolicy, err)
+				continue
+			}
+			b.taskStorage.register(fillQueuePrefix+roleName, func() {
+				log.Printf("%s run queue filler %s", logPrefixVenafiImport, roleName)
+				//get the policy config here, since this is on the scoupe of this anonymous methods, this will
+				//solve an issue with the ImportOnlyNonCompliant that doesn't hold the correct value.
+				policyConfig, _ := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
+				b.fillImportQueueTask(roleName, policyMap.Roles[roleName].ImportPolicy, policyConfig.VenafiImportWorkers, b.storage, policyConfig.ImportOnlyNonCompliant, conf)
+			}, 1, time.Duration(policyConfig.VenafiImportTimeout)*time.Second)
+
+		}
+	*/
+
 	stringInSlice := func(s string, sl []string) bool {
 		for i := range sl {
 			if sl[i] == s {
@@ -379,7 +381,7 @@ func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, policyName string
 		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
 		return false, err
 	}
-	err = checkCSR(false, &req, policy)
+	err = checkCSRAgainstZone(false, &req, policy)
 	if err != nil {
 		return false, nil
 	}

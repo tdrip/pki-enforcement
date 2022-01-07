@@ -83,7 +83,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 			//VENAFI PATHS
 			pathImportQueue(&b),
 			pathImportQueueList(&b),
-			pathVenafiPolicySync(&b),
+			//pathVenafiPolicySync(&b),
 
 			pathRevoke(&b),
 			pathTidy(&b),
@@ -110,7 +110,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 	} else {
 		b.taskStorage.init()
 		b.importToTPP(conf)
-		b.syncRoleWithVenafiPolicyRegister(conf)
+		//b.syncRoleWithVenafiPolicyRegister(conf)
 	}
 
 	return &b
