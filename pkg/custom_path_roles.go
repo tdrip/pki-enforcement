@@ -558,7 +558,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	// Vault has policy
 	// we shall stick to zone so that it is clear
 	// this is a venafi zone (path in a venafi platform)
-	zoneEntry := &venafiZoneEntry{
+	zoneEntry := &zoneEntry{
 		SubjectCNRegexes:         zone.SubjectCNRegexes,
 		SubjectORegexes:          zone.SubjectORegexes,
 		SubjectOURegexes:         zone.SubjectOURegexes,
@@ -614,7 +614,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
 		NotBeforeDuration:             time.Duration(data.Get("not_before_duration").(int)) * time.Second,
 		Name:                          name,
-		VenafiZone:                    zoneEntry,
+		ZoneEntry:                     zoneEntry,
 	}
 
 	allowedOtherSANs := data.Get("allowed_other_sans").([]string)
@@ -819,7 +819,7 @@ type roleEntry struct {
 	// Vault has policy
 	// we shall stick to zone so that it is clear
 	// this is a venafi zone (path in a venafi platform)
-	VenafiZone *venafiZoneEntry `json:"venafi_zone"`
+	ZoneEntry *zoneEntry `json:"zone_entry"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
@@ -862,7 +862,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"policy_identifiers":                 r.PolicyIdentifiers,
 		"basic_constraints_valid_for_non_ca": r.BasicConstraintsValidForNonCA,
 		"not_before_duration":                int64(r.NotBeforeDuration.Seconds()),
-		"venafi_zone":                        r.VenafiZone,
+		"zone_entry":                         r.ZoneEntry,
 	}
 	if r.MaxPathLength != nil {
 		responseData["max_path_length"] = r.MaxPathLength

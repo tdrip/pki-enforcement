@@ -13,14 +13,46 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-func checkAgainstVenafiZone(
-	req *logical.Request,
-	role *roleEntry,
-	isCA bool,
-	csr *x509.CertificateRequest,
-	cn string,
-	ipAddresses, email, sans []string) error {
-	if role.VenafiZone == nil {
+type zoneConfigEntry struct {
+	ExtKeyUsage            []x509.ExtKeyUsage `json:"ext_key_usage"`
+	AutoRefreshInterval    int64              `json:"auto_refresh_interval"`
+	LastPolicyUpdateTime   int64              `json:"last_policy_update_time"`
+	VenafiImportTimeout    int                `json:"import_timeout"`
+	VenafiImportWorkers    int                `json:"import_workers"`
+	VenafiSecret           string             `json:"venafi_secret"`
+	Zone                   string             `json:"zone"`
+	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
+}
+
+type zoneEntry struct {
+	ExtKeyUsage              []x509.ExtKeyUsage                 `json:"ext_key_usage"`
+	SubjectCNRegexes         []string                           `json:"subject_cn_regexes"`
+	SubjectORegexes          []string                           `json:"subject_o_regexes"`
+	SubjectOURegexes         []string                           `json:"subject_ou_regexes"`
+	SubjectSTRegexes         []string                           `json:"subject_st_regexes"`
+	SubjectLRegexes          []string                           `json:"subject_l_regexes"`
+	SubjectCRegexes          []string                           `json:"subject_c_regexes"`
+	AllowedKeyConfigurations []endpoint.AllowedKeyConfiguration `json:"allowed_key_configurations"`
+	DnsSanRegExs             []string                           `json:"dns_san_regexes"`
+	IpSanRegExs              []string                           `json:"ip_san_regexes"`
+	EmailSanRegExs           []string                           `json:"email_san_regexes"`
+	UriSanRegExs             []string                           `json:"uri_san_regexes"`
+	UpnSanRegExs             []string                           `json:"upn_san_regexes"`
+	AllowWildcards           bool                               `json:"allow_wildcards"`
+	AllowKeyReuse            bool                               `json:"allow_key_reuse"`
+	ImportZone               string                             `json:"import_zone"`
+	Zone                     string                             `json:"zone"`
+	ConfigPath               string                             `json:"config_path"`
+}
+
+func NewZoneEntry() *zoneEntry {
+	ve := zoneEntry{}
+
+	return &ve
+}
+
+func checkAgainstVenafiZone(req *logical.Request, role *roleEntry, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
+	if role.ZoneEntry == nil {
 		if venafiPolicyDenyAll {
 			//TODO: Can not understand why I added this if here. Probably should be removed
 			//if strings.Contains(req.Path, "root/generate") {
@@ -32,10 +64,10 @@ func checkAgainstVenafiZone(
 		}
 	}
 
-	policy := role.VenafiZone
+	policy := role.ZoneEntry
 
 	if csr != nil {
-		log.Printf("%s Checking CSR against zone %v", logPrefixVenafiPolicyEnforcement, role.VenafiZone)
+		log.Printf("%s Checking CSR against zone %v", logPrefixVenafiPolicyEnforcement, role.ZoneEntry)
 		if isCA {
 			if len(csr.EmailAddresses) != 0 || len(csr.DNSNames) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 {
 				//workaround for setting SAN if CA have normal domain in CN
@@ -168,7 +200,7 @@ func checkAgainstVenafiZone(
 	return nil
 }
 
-func checkCSRAgainstZone(isCA bool, csr *x509.CertificateRequest, zone venafiZoneEntry) error {
+func checkCSRAgainstZoneEntry(isCA bool, csr *x509.CertificateRequest, zone zoneEntry) error {
 	if isCA {
 		if len(csr.EmailAddresses) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 || (len(csr.DNSNames) != 0 &&
 			csr.DNSNames[0] != csr.Subject.CommonName) { //workaround for setting SAN if CA have normal domain in CN
@@ -238,36 +270,10 @@ func checkCSRAgainstZone(isCA bool, csr *x509.CertificateRequest, zone venafiZon
 	return nil
 }
 
-type venafiZoneEntry struct {
-	ExtKeyUsage              []x509.ExtKeyUsage                 `json:"ext_key_usage"`
-	SubjectCNRegexes         []string                           `json:"subject_cn_regexes"`
-	SubjectORegexes          []string                           `json:"subject_o_regexes"`
-	SubjectOURegexes         []string                           `json:"subject_ou_regexes"`
-	SubjectSTRegexes         []string                           `json:"subject_st_regexes"`
-	SubjectLRegexes          []string                           `json:"subject_l_regexes"`
-	SubjectCRegexes          []string                           `json:"subject_c_regexes"`
-	AllowedKeyConfigurations []endpoint.AllowedKeyConfiguration `json:"allowed_key_configurations"`
-	DnsSanRegExs             []string                           `json:"dns_san_regexes"`
-	IpSanRegExs              []string                           `json:"ip_san_regexes"`
-	EmailSanRegExs           []string                           `json:"email_san_regexes"`
-	UriSanRegExs             []string                           `json:"uri_san_regexes"`
-	UpnSanRegExs             []string                           `json:"upn_san_regexes"`
-	AllowWildcards           bool                               `json:"allow_wildcards"`
-	AllowKeyReuse            bool                               `json:"allow_key_reuse"`
-	ImportZone               string                             `json:"import_zone"`
-	Zone                     string                             `json:"zone"`
-	ConfigPath               string                             `json:"config_path"`
-}
-
-func NewVenafiZoneEntry() *venafiZoneEntry {
-	ve := venafiZoneEntry{}
-
-	return &ve
-}
-
 func (b *backend) getZoneFromVenafi1(ctx context.Context, storage *logical.Storage, zone string) (policy *endpoint.Policy, err error) {
 	return b.getZoneFromVenafi(ctx, storage, zone, "TODO: ROLE NAME TO COME LATER")
 }
+
 func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixVenafiPolicyEnforcement)
 

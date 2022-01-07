@@ -375,13 +375,13 @@ func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, policyName string
 		return false, fmt.Errorf("policy data is nil. You need configure Venafi policy to proceed")
 	}
 
-	var policy venafiZoneEntry
+	var zone zoneEntry
 
-	if err := entry.DecodeJSON(&policy); err != nil {
+	if err := entry.DecodeJSON(&zone); err != nil {
 		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
 		return false, err
 	}
-	err = checkCSRAgainstZone(false, &req, policy)
+	err = checkCSRAgainstZone(false, &req, zone)
 	if err != nil {
 		return false, nil
 	}

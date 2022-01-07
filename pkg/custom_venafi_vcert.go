@@ -17,15 +17,14 @@ const venafiPolicyCheck = true
 
 var venafiPolicyDenyAll = true
 
-func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, policyName string, roleName string) (
-	endpoint.Connector, error) {
+func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, zoneconfigpath string, roleName string) (endpoint.Connector, error) {
 
 	// this will need to be changed
-	if policyName == "" {
-		return nil, fmt.Errorf("empty policy name")
+	if zoneconfigpath == "" {
+		return nil, fmt.Errorf("empty zone config path")
 	}
 
-	config, err := b.getVenafiZoneConfig(ctx, s, policyName)
+	config, err := b.getVenafiZoneConfig(ctx, s, zoneconfigpath)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +49,7 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 	zone := ""
 
 	if config.Zone != "" {
-		b.Logger().Debug("Using zone from Venafi Policy.", "zone", config.Zone)
+		b.Logger().Debug("Using zone from Venafi Config.", "zone", config.Zone)
 		zone = config.Zone + "\\" + roleName
 	} else {
 		b.Logger().Debug("Using zone from Venafi secret since Policy zone not found.", "zone", secret.Zone)
@@ -61,8 +60,7 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 
 }
 
-func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, policyName string, roleName string) (
-	*vcert.Config, error) {
+func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, policyName string, roleName string) (*vcert.Config, error) {
 
 	if policyName == "" {
 		return nil, fmt.Errorf("empty policy name")
