@@ -2,11 +2,9 @@ package pki
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"strings"
 
-	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -280,42 +278,6 @@ func (b *backend) getVenafiZoneConfig(ctx context.Context, s *logical.Storage, c
 		return nil, err
 	}
 	return &result, nil
-}
-
-func formZoneRespData(zone zoneEntry) (respData map[string]interface{}) {
-	type printKeyConfig struct {
-		KeyType   string
-		KeySizes  []int    `json:",omitempty"`
-		KeyCurves []string `json:",omitempty"`
-	}
-	keyConfigs := make([]string, len(zone.AllowedKeyConfigurations))
-	for i, akc := range zone.AllowedKeyConfigurations {
-		kc := printKeyConfig{akc.KeyType.String(), akc.KeySizes, nil}
-		if akc.KeyType == certificate.KeyTypeECDSA {
-			kc.KeyCurves = make([]string, len(akc.KeyCurves))
-			for i, c := range akc.KeyCurves {
-				kc.KeyCurves[i] = c.String()
-			}
-		}
-		kb, _ := json.Marshal(kc)
-		keyConfigs[i] = string(kb)
-	}
-	return map[string]interface{}{
-		"subject_cn_regexes":         zone.SubjectCNRegexes,
-		"subject_o_regexes":          zone.SubjectORegexes,
-		"subject_ou_regexes":         zone.SubjectOURegexes,
-		"subject_st_regexes":         zone.SubjectSTRegexes,
-		"subject_l_regexes":          zone.SubjectLRegexes,
-		"subject_c_regexes":          zone.SubjectCRegexes,
-		"allowed_key_configurations": keyConfigs,
-		"dns_san_regexes":            zone.DnsSanRegExs,
-		"ip_san_regexes":             zone.IpSanRegExs,
-		"email_san_regexes":          zone.EmailSanRegExs,
-		"uri_san_regexes":            zone.UriSanRegExs,
-		"upn_san_regexes":            zone.UpnSanRegExs,
-		"allow_wildcards":            zone.AllowWildcards,
-		"allow_key_reuse":            zone.AllowKeyReuse,
-	}
 }
 
 const pathVenafiZoneSyn = `help here`

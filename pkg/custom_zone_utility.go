@@ -5,10 +5,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
 
+	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -270,10 +272,6 @@ func checkCSRAgainstZoneEntry(isCA bool, csr *x509.CertificateRequest, zone zone
 	return nil
 }
 
-func (b *backend) getZoneFromVenafi1(ctx context.Context, storage *logical.Storage, zone string) (policy *endpoint.Policy, err error) {
-	return b.getZoneFromVenafi(ctx, storage, zone, "TODO: ROLE NAME TO COME LATER")
-}
-
 func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixVenafiPolicyEnforcement)
 
@@ -337,4 +335,70 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 	}
 
 	return
+}
+
+func (b *backend) getZoneEntryFromVenafi(ctx context.Context, storage *logical.Storage, path string, role string) (zoneentry *zoneEntry, err error) {
+	// grab the zone from Venafi
+	zone, err := b.getZoneFromVenafi(ctx, storage, path, role)
+	if err != nil {
+		return nil, err
+	}
+
+	// Venafi have this concept of zone/policy which is interchangeable
+	// Vault has policy
+	// we shall stick to zone so that it is clear
+	// this is a venafi zone (path in a venafi platform)
+	zoneentry = &zoneEntry{
+		SubjectCNRegexes:         zone.SubjectCNRegexes,
+		SubjectORegexes:          zone.SubjectORegexes,
+		SubjectOURegexes:         zone.SubjectOURegexes,
+		SubjectSTRegexes:         zone.SubjectSTRegexes,
+		SubjectLRegexes:          zone.SubjectLRegexes,
+		SubjectCRegexes:          zone.SubjectCRegexes,
+		AllowedKeyConfigurations: zone.AllowedKeyConfigurations,
+		DnsSanRegExs:             zone.DnsSanRegExs,
+		IpSanRegExs:              zone.IpSanRegExs,
+		EmailSanRegExs:           zone.EmailSanRegExs,
+		UriSanRegExs:             zone.UriSanRegExs,
+		UpnSanRegExs:             zone.UpnSanRegExs,
+		AllowWildcards:           zone.AllowWildcards,
+		AllowKeyReuse:            zone.AllowKeyReuse,
+	}
+	return zoneentry, nil
+}
+
+func formZoneRespData(zone zoneEntry) (respData map[string]interface{}) {
+	type printKeyConfig struct {
+		KeyType   string
+		KeySizes  []int    `json:",omitempty"`
+		KeyCurves []string `json:",omitempty"`
+	}
+	keyConfigs := make([]string, len(zone.AllowedKeyConfigurations))
+	for i, akc := range zone.AllowedKeyConfigurations {
+		kc := printKeyConfig{akc.KeyType.String(), akc.KeySizes, nil}
+		if akc.KeyType == certificate.KeyTypeECDSA {
+			kc.KeyCurves = make([]string, len(akc.KeyCurves))
+			for i, c := range akc.KeyCurves {
+				kc.KeyCurves[i] = c.String()
+			}
+		}
+		kb, _ := json.Marshal(kc)
+		keyConfigs[i] = string(kb)
+	}
+	return map[string]interface{}{
+		"subject_cn_regexes":         zone.SubjectCNRegexes,
+		"subject_o_regexes":          zone.SubjectORegexes,
+		"subject_ou_regexes":         zone.SubjectOURegexes,
+		"subject_st_regexes":         zone.SubjectSTRegexes,
+		"subject_l_regexes":          zone.SubjectLRegexes,
+		"subject_c_regexes":          zone.SubjectCRegexes,
+		"allowed_key_configurations": keyConfigs,
+		"dns_san_regexes":            zone.DnsSanRegExs,
+		"ip_san_regexes":             zone.IpSanRegExs,
+		"email_san_regexes":          zone.EmailSanRegExs,
+		"uri_san_regexes":            zone.UriSanRegExs,
+		"upn_san_regexes":            zone.UpnSanRegExs,
+		"allow_wildcards":            zone.AllowWildcards,
+		"allow_key_reuse":            zone.AllowKeyReuse,
+	}
 }

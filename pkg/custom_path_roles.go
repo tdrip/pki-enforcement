@@ -548,31 +548,9 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	// using custom imort custom config?
 	zonePath := data.Get("import_config").(string)
 
-	// grab the zone from Venafi
-	zone, err := b.getZoneFromVenafi(ctx, &req.Storage, zonePath, name)
+	zoneEntry, err := b.getZoneEntryFromVenafi(ctx, &req.Storage, zonePath, name)
 	if err != nil {
 		return logical.ErrorResponse("getZoneFromVenafi failed with: %v", err), err
-	}
-
-	// Venafi have this concept of zone/policy which is interchangeable
-	// Vault has policy
-	// we shall stick to zone so that it is clear
-	// this is a venafi zone (path in a venafi platform)
-	zoneEntry := &zoneEntry{
-		SubjectCNRegexes:         zone.SubjectCNRegexes,
-		SubjectORegexes:          zone.SubjectORegexes,
-		SubjectOURegexes:         zone.SubjectOURegexes,
-		SubjectSTRegexes:         zone.SubjectSTRegexes,
-		SubjectLRegexes:          zone.SubjectLRegexes,
-		SubjectCRegexes:          zone.SubjectCRegexes,
-		AllowedKeyConfigurations: zone.AllowedKeyConfigurations,
-		DnsSanRegExs:             zone.DnsSanRegExs,
-		IpSanRegExs:              zone.IpSanRegExs,
-		EmailSanRegExs:           zone.EmailSanRegExs,
-		UriSanRegExs:             zone.UriSanRegExs,
-		UpnSanRegExs:             zone.UpnSanRegExs,
-		AllowWildcards:           zone.AllowWildcards,
-		AllowKeyReuse:            zone.AllowKeyReuse,
 	}
 
 	entry := &roleEntry{
