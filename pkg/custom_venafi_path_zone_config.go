@@ -3,12 +3,10 @@ package pki
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"strings"
 
 	"github.com/Venafi/vcert/v4/pkg/certificate"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -100,30 +98,6 @@ Example for Venafi Cloud: Default`,
 	return ret
 }
 
-func pathVenafiPolicyContent(b *backend) *framework.Path {
-	ret := &framework.Path{
-		Pattern: venafiZoneConfigPath + framework.GenericNameRegex("name") + "/policy",
-		Fields: map[string]*framework.FieldSchema{
-			"name": {
-				Type:        framework.TypeString,
-				Description: "Name of the Venafi policy config",
-			},
-		},
-		Operations: map[logical.Operation]framework.OperationHandler{
-			logical.ReadOperation: &framework.PathOperation{
-				Callback: b.pathReadVenafiPolicyContent,
-			},
-			logical.UpdateOperation: &framework.PathOperation{
-				Callback: b.pathUpdateVenafiPolicyContent,
-			},
-		},
-
-		HelpSynopsis:    pathVenafiZoneSyn,
-		HelpDescription: pathVenafiZoneDesc,
-	}
-	return ret
-}
-
 func pathVenafiPolicyList(b *backend) *framework.Path {
 	ret := &framework.Path{
 		Pattern: venafiZoneConfigPath,
@@ -137,53 +111,6 @@ func pathVenafiPolicyList(b *backend) *framework.Path {
 		HelpDescription: pathImportQueueDesc,
 	}
 	return ret
-}
-
-func (b *backend) refreshVenafiPolicyEnforcementContent(storage logical.Storage, policyName string) (err error) {
-
-	ctx := context.Background()
-
-	venafiPolicyConfig, err := b.getVenafiZoneConfig(ctx, &storage, policyName)
-	if err != nil {
-		return fmt.Errorf("error getting policy config %s: %s", policyName, err)
-
-	}
-	if venafiPolicyConfig == nil {
-		return fmt.Errorf("policy config for %s is empty", policyName)
-	}
-
-	if venafiPolicyConfig.AutoRefreshInterval > 0 {
-		log.Printf("%s Auto refresh enabled for policy %s. Getting policy from Venafi", logPrefixVenafiPolicyEnforcement, policyName)
-	} else {
-		return nil
-	}
-
-	policy, err := b.getZoneFromVenafi1(ctx, &storage, policyName)
-	if err != nil {
-		return fmt.Errorf("error getting policy %s from Venafi: %s", policyName, err)
-
-	}
-
-	log.Printf("%s Saving zone %s", logPrefixVenafiPolicyEnforcement, policyName)
-	_, err = saveZoneEntry(policy, policyName, ctx, &storage)
-	if err != nil {
-		return fmt.Errorf("%s Error saving zone: %s", logPrefixVenafiPolicyEnforcement, err)
-
-	}
-	//policy config's credentials may be got updated so get it from storage again before saving it.
-	venafiPolicyConfig, _ = b.getVenafiZoneConfig(ctx, &storage, policyName)
-
-	jsonEntry, err := logical.StorageEntryJSON(venafiZoneConfigPath+policyName, venafiPolicyConfig)
-	if err != nil {
-		return fmt.Errorf("%s Error converting policy config into JSON: %s", logPrefixVenafiPolicyEnforcement, err)
-
-	}
-	if err := storage.Put(ctx, jsonEntry); err != nil {
-		return fmt.Errorf("error saving policy last update time: %s", err)
-
-	}
-
-	return nil
 }
 
 func (b *backend) pathReadVenafiPolicyContent(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -216,31 +143,12 @@ func (b *backend) pathReadVenafiPolicyContent(ctx context.Context, req *logical.
 	}, nil
 }
 
-func (b *backend) pathUpdateVenafiPolicyContent(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	name := data.Get("name").(string)
-
-	policy, err := b.getZoneFromVenafi1(ctx, &req.Storage, name)
-	if err != nil {
-		return nil, err
-	}
-
-	policyEntry, err := saveZoneEntry(policy, name, ctx, &req.Storage)
-	if err != nil {
-		return nil, err
-	}
-
-	respData := formZoneRespData(*policyEntry)
-	return &logical.Response{
-		Data: respData,
-	}, nil
-}
-
 func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, err error) {
 	name := data.Get("name").(string)
 
 	log.Printf("%s Write policy endpoint configuration into storage", logPrefixVenafiPolicyEnforcement)
 
-	venafiPolicyConfig := &zoneConfigEntry{
+	config := &zoneConfigEntry{
 		AutoRefreshInterval:    int64(data.Get("auto_refresh_interval").(int)),
 		VenafiImportTimeout:    data.Get("import_timeout").(int),
 		VenafiImportWorkers:    data.Get("import_workers").(int),
@@ -249,33 +157,28 @@ func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.R
 		ImportOnlyNonCompliant: data.Get("import_only_non_compliant").(bool),
 	}
 	unparsedKeyUsage := data.Get("ext_key_usage").([]string)
-	venafiPolicyConfig.ExtKeyUsage, err = parseExtKeyUsageParameter(unparsedKeyUsage)
+	config.ExtKeyUsage, err = parseExtKeyUsageParameter(unparsedKeyUsage)
 	if err != nil {
 		return
 	}
 
-	jsonEntry, err := logical.StorageEntryJSON(venafiZoneConfigPath+name, venafiPolicyConfig)
+	jsonEntry, err := logical.StorageEntryJSON(venafiZoneConfigPath+name, config)
 	if err != nil {
 		return nil, err
 	}
 	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
 		return nil, err
 	}
-
-	log.Printf("%s Geting policy using Venafi secret: %s", logPrefixVenafiPolicyEnforcement, venafiPolicyConfig.VenafiSecret)
-	policy, err := b.getZoneFromVenafi1(ctx, &req.Storage, name)
-	if err != nil {
-		return nil, err
+	//Send config to the user output
+	respData := map[string]interface{}{
+		"venafi_secret":             config.VenafiSecret,
+		"zone":                      config.Zone,
+		"auto_refresh_interval":     config.AutoRefreshInterval,
+		"last_policy_update_time":   config.LastPolicyUpdateTime,
+		"import_timeout":            config.VenafiImportTimeout,
+		"import_workers":            config.VenafiImportWorkers,
+		"import_only_non_compliant": config.ImportOnlyNonCompliant,
 	}
-	policyEntry, err := saveZoneEntry(policy, name, ctx, &req.Storage)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("%s Updating roles policy attributes", logPrefixVenafiPolicyEnforcement)
-
-	//Send policy to the user output
-	respData := formZoneRespData(*policyEntry)
 
 	return &logical.Response{
 		Data:     respData,
@@ -377,38 +280,6 @@ func (b *backend) getVenafiZoneConfig(ctx context.Context, s *logical.Storage, c
 		return nil, err
 	}
 	return &result, nil
-}
-
-func saveZoneEntry(policy *endpoint.Policy, name string, ctx context.Context, storage *logical.Storage) (zone *zoneEntry, err error) {
-
-	//Form policy entry for storage
-	zone = &zoneEntry{
-		SubjectCNRegexes:         policy.SubjectCNRegexes,
-		SubjectORegexes:          policy.SubjectORegexes,
-		SubjectOURegexes:         policy.SubjectOURegexes,
-		SubjectSTRegexes:         policy.SubjectSTRegexes,
-		SubjectLRegexes:          policy.SubjectLRegexes,
-		SubjectCRegexes:          policy.SubjectCRegexes,
-		AllowedKeyConfigurations: policy.AllowedKeyConfigurations,
-		DnsSanRegExs:             policy.DnsSanRegExs,
-		IpSanRegExs:              policy.IpSanRegExs,
-		EmailSanRegExs:           policy.EmailSanRegExs,
-		UriSanRegExs:             policy.UriSanRegExs,
-		UpnSanRegExs:             policy.UpnSanRegExs,
-		AllowWildcards:           policy.AllowWildcards,
-		AllowKeyReuse:            policy.AllowKeyReuse,
-	}
-
-	log.Printf("%s Saving policy into Vault storage", logPrefixVenafiPolicyEnforcement)
-	jsonEntry, err := logical.StorageEntryJSON(venafiZoneConfigPath+name+"/policy", zone)
-	if err != nil {
-		return nil, err
-	}
-	if err := (*storage).Put(ctx, jsonEntry); err != nil {
-		return nil, err
-	}
-
-	return zone, nil
 }
 
 func formZoneRespData(zone zoneEntry) (respData map[string]interface{}) {

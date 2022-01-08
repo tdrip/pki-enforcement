@@ -381,7 +381,7 @@ func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, policyName string
 		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
 		return false, err
 	}
-	err = checkCSRAgainstZone(false, &req, zone)
+	err = checkCSRAgainstZoneEntry(false, &req, zone)
 	if err != nil {
 		return false, nil
 	}
