@@ -111,36 +111,6 @@ func pathVenafiPolicyList(b *backend) *framework.Path {
 	return ret
 }
 
-func (b *backend) pathReadVenafiPolicyContent(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	name := data.Get("name").(string)
-	log.Printf("%s Trying to read policy for config %s", logPrefixVenafiPolicyEnforcement, name)
-
-	if len(name) == 0 {
-		return logical.ErrorResponse("Non config specified or wrong config path name"), nil
-	}
-
-	entry, err := req.Storage.Get(ctx, venafiZoneConfigPath+name+"/policy")
-	if err != nil {
-		return nil, err
-	}
-	if entry == nil {
-		return logical.ErrorResponse("policy data is nil. Looks like it doesn't exists."), nil
-	}
-
-	var zone zoneEntry
-	if err := entry.DecodeJSON(&zone); err != nil {
-		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
-		return nil, err
-	}
-
-	//Send Zone to the user output
-	respData := formZoneRespData(zone)
-
-	return &logical.Response{
-		Data: respData,
-	}, nil
-}
-
 func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, err error) {
 	name := data.Get("name").(string)
 

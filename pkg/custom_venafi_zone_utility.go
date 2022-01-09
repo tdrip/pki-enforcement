@@ -5,12 +5,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
 
-	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -26,6 +24,7 @@ type zoneConfigEntry struct {
 	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
 }
 
+/*
 type zoneEntry struct {
 	ExtKeyUsage              []x509.ExtKeyUsage                 `json:"ext_key_usage"`
 	SubjectCNRegexes         []string                           `json:"subject_cn_regexes"`
@@ -47,29 +46,33 @@ type zoneEntry struct {
 	ConfigPath               string                             `json:"config_path"`
 }
 
+
 func NewZoneEntry() *zoneEntry {
 	ve := zoneEntry{}
 
 	return &ve
 }
+*/
 
 func checkAgainstVenafiZone(req *logical.Request, role *roleEntry, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
-	if role.ZoneEntry == nil {
-		if venafiPolicyDenyAll {
-			//TODO: Can not understand why I added this if here. Probably should be removed
-			//if strings.Contains(req.Path, "root/generate") {
-			//	log.Println("zone data is nil. You need configure Venafi zone to proceed")
-			//}
-			return fmt.Errorf("zone data is nil. You need configure Venafi zone to proceed")
-		} else {
-			return nil
+	/*
+		if role.ZoneEntry == nil {
+			if venafiPolicyDenyAll {
+				//TODO: Can not understand why I added this if here. Probably should be removed
+				//if strings.Contains(req.Path, "root/generate") {
+				//	log.Println("zone data is nil. You need configure Venafi zone to proceed")
+				//}
+				return fmt.Errorf("zone data is nil. You need configure Venafi zone to proceed")
+			} else {
+				return nil
+			}
 		}
-	}
+	*/
 
-	policy := role.ZoneEntry
+	policy := role
 
 	if csr != nil {
-		log.Printf("%s Checking CSR against zone %v", logPrefixVenafiPolicyEnforcement, role.ZoneEntry)
+		log.Printf("%s Checking CSR against zone %v", logPrefixVenafiPolicyEnforcement, role)
 		if isCA {
 			if len(csr.EmailAddresses) != 0 || len(csr.DNSNames) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 {
 				//workaround for setting SAN if CA have normal domain in CN
@@ -194,7 +197,7 @@ func checkAgainstVenafiZone(req *logical.Request, role *roleEntry, isCA bool, cs
 		return err
 	}
 	if !isCA {
-		if !compareEkuList(extKeyUsage, policy.ExtKeyUsage) {
+		if !compareEkuList(extKeyUsage, policy.VExtKeyUsage) {
 			return fmt.Errorf("different EKU in Venafi zone config and role")
 		}
 	}
@@ -202,7 +205,7 @@ func checkAgainstVenafiZone(req *logical.Request, role *roleEntry, isCA bool, cs
 	return nil
 }
 
-func checkCSRAgainstZoneEntry(isCA bool, csr *x509.CertificateRequest, zone zoneEntry) error {
+func checkCSRAgainstZoneEntry(isCA bool, csr *x509.CertificateRequest, zone roleEntry) error {
 	if isCA {
 		if len(csr.EmailAddresses) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 || (len(csr.DNSNames) != 0 &&
 			csr.DNSNames[0] != csr.Subject.CommonName) { //workaround for setting SAN if CA have normal domain in CN
@@ -337,6 +340,37 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 	return
 }
 
+func (b *backend) getRoleEntryFromVenafi(ctx context.Context, storage *logical.Storage, path string, role *roleEntry) (zoneentry *roleEntry, err error) {
+	// grab the zone from Venafi
+	zone, err := b.getZoneFromVenafi(ctx, storage, path, role.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Venafi have this concept of zone/policy which is interchangeable
+	// Vault has policy
+	// we shall stick to zone so that it is clear
+	// this is a venafi zone (path in a venafi platform)
+
+	role.SubjectCNRegexes = zone.SubjectCNRegexes
+	role.SubjectORegexes = zone.SubjectORegexes
+	role.SubjectOURegexes = zone.SubjectOURegexes
+	role.SubjectSTRegexes = zone.SubjectSTRegexes
+	role.SubjectLRegexes = zone.SubjectLRegexes
+	role.SubjectCRegexes = zone.SubjectCRegexes
+	role.AllowedKeyConfigurations = zone.AllowedKeyConfigurations
+	role.DnsSanRegExs = zone.DnsSanRegExs
+	role.IpSanRegExs = zone.IpSanRegExs
+	role.EmailSanRegExs = zone.EmailSanRegExs
+	role.UriSanRegExs = zone.UriSanRegExs
+	role.UpnSanRegExs = zone.UpnSanRegExs
+	role.AllowWildcards = zone.AllowWildcards
+	role.AllowKeyReuse = zone.AllowKeyReuse
+
+	return role, nil
+}
+
+/*
 func (b *backend) getZoneEntryFromVenafi(ctx context.Context, storage *logical.Storage, path string, role string) (zoneentry *zoneEntry, err error) {
 	// grab the zone from Venafi
 	zone, err := b.getZoneFromVenafi(ctx, storage, path, role)
@@ -366,6 +400,7 @@ func (b *backend) getZoneEntryFromVenafi(ctx context.Context, storage *logical.S
 	}
 	return zoneentry, nil
 }
+
 
 func formZoneRespData(zone zoneEntry) (respData map[string]interface{}) {
 	type printKeyConfig struct {
@@ -402,3 +437,4 @@ func formZoneRespData(zone zoneEntry) (respData map[string]interface{}) {
 		"allow_key_reuse":            zone.AllowKeyReuse,
 	}
 }
+*/

@@ -3,10 +3,13 @@ package pki
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/Venafi/vcert/v4/pkg/certificate"
+	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/certutil"
 	"github.com/hashicorp/vault/sdk/helper/consts"
@@ -548,11 +551,6 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	// using custom imort custom config?
 	zonePath := data.Get("import_config").(string)
 
-	zoneEntry, err := b.getZoneEntryFromVenafi(ctx, &req.Storage, zonePath, name)
-	if err != nil {
-		return logical.ErrorResponse("getZoneFromVenafi failed with: %v", err), err
-	}
-
 	entry := &roleEntry{
 		MaxTTL:                        time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:                           time.Duration(data.Get("ttl").(int)) * time.Second,
@@ -592,8 +590,15 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
 		NotBeforeDuration:             time.Duration(data.Get("not_before_duration").(int)) * time.Second,
 		Name:                          name,
-		ZoneEntry:                     zoneEntry,
+		//ZoneEntry:                     zoneEntry,
 	}
+
+	updatedEntry, err := b.getRoleEntryFromVenafi(ctx, &req.Storage, zonePath, entry)
+	if err != nil {
+		return logical.ErrorResponse("getZoneFromVenafi failed with: %v", err), err
+	}
+
+	entry = updatedEntry
 
 	allowedOtherSANs := data.Get("allowed_other_sans").([]string)
 	switch {
@@ -797,10 +802,43 @@ type roleEntry struct {
 	// Vault has policy
 	// we shall stick to zone so that it is clear
 	// this is a venafi zone (path in a venafi platform)
-	ZoneEntry *zoneEntry `json:"zone_entry"`
+	Zone                     string                             `json:"zone"`
+	LastZoneUpdateTime       int64                              `json:"last_zone_update_time"`
+	VExtKeyUsage             []x509.ExtKeyUsage                 `json:"ext_key_usage"`
+	SubjectCNRegexes         []string                           `json:"subject_cn_regexes"`
+	SubjectORegexes          []string                           `json:"subject_o_regexes"`
+	SubjectOURegexes         []string                           `json:"subject_ou_regexes"`
+	SubjectSTRegexes         []string                           `json:"subject_st_regexes"`
+	SubjectLRegexes          []string                           `json:"subject_l_regexes"`
+	SubjectCRegexes          []string                           `json:"subject_c_regexes"`
+	AllowedKeyConfigurations []endpoint.AllowedKeyConfiguration `json:"allowed_key_configurations"`
+	DnsSanRegExs             []string                           `json:"dns_san_regexes"`
+	IpSanRegExs              []string                           `json:"ip_san_regexes"`
+	EmailSanRegExs           []string                           `json:"email_san_regexes"`
+	UriSanRegExs             []string                           `json:"uri_san_regexes"`
+	UpnSanRegExs             []string                           `json:"upn_san_regexes"`
+	AllowWildcards           bool                               `json:"allow_wildcards"`
+	AllowKeyReuse            bool                               `json:"allow_key_reuse"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
+	type printKeyConfig struct {
+		KeyType   string
+		KeySizes  []int    `json:",omitempty"`
+		KeyCurves []string `json:",omitempty"`
+	}
+	keyConfigs := make([]string, len(r.AllowedKeyConfigurations))
+	for i, akc := range r.AllowedKeyConfigurations {
+		kc := printKeyConfig{akc.KeyType.String(), akc.KeySizes, nil}
+		if akc.KeyType == certificate.KeyTypeECDSA {
+			kc.KeyCurves = make([]string, len(akc.KeyCurves))
+			for i, c := range akc.KeyCurves {
+				kc.KeyCurves[i] = c.String()
+			}
+		}
+		kb, _ := json.Marshal(kc)
+		keyConfigs[i] = string(kb)
+	}
 	responseData := map[string]interface{}{
 		"ttl":                                int64(r.TTL.Seconds()),
 		"max_ttl":                            int64(r.MaxTTL.Seconds()),
@@ -840,7 +878,21 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"policy_identifiers":                 r.PolicyIdentifiers,
 		"basic_constraints_valid_for_non_ca": r.BasicConstraintsValidForNonCA,
 		"not_before_duration":                int64(r.NotBeforeDuration.Seconds()),
-		"zone_entry":                         r.ZoneEntry,
+		//"zone_entry":                         r.ZoneEntry,
+		"subject_cn_regexes":         r.SubjectCNRegexes,
+		"subject_o_regexes":          r.SubjectORegexes,
+		"subject_ou_regexes":         r.SubjectOURegexes,
+		"subject_st_regexes":         r.SubjectSTRegexes,
+		"subject_l_regexes":          r.SubjectLRegexes,
+		"subject_c_regexes":          r.SubjectCRegexes,
+		"allowed_key_configurations": keyConfigs,
+		"dns_san_regexes":            r.DnsSanRegExs,
+		"ip_san_regexes":             r.IpSanRegExs,
+		"email_san_regexes":          r.EmailSanRegExs,
+		"uri_san_regexes":            r.UriSanRegExs,
+		"upn_san_regexes":            r.UpnSanRegExs,
+		"allow_wildcards":            r.AllowWildcards,
+		"allow_key_reuse":            r.AllowKeyReuse,
 	}
 	if r.MaxPathLength != nil {
 		responseData["max_path_length"] = r.MaxPathLength
