@@ -11,13 +11,13 @@ import (
 )
 
 func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
-	log.Printf("%s Creating Venafi client", logPrefixVenafiPolicyEnforcement)
+	log.Printf("%s Creating Venafi client", logPrefixEnforcement)
 
 	cl, err := b.RoleBasedClientVenafi(ctx, storage, role)
 	if err != nil {
 		return
 	}
-	log.Printf("%s Getting policy from Venafi endpoint", logPrefixVenafiPolicyEnforcement)
+	log.Printf("%s Getting policy from Venafi endpoint", logPrefixEnforcement)
 
 	policy, err = cl.ReadPolicyConfiguration()
 	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {

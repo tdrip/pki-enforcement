@@ -19,6 +19,8 @@ const (
 	// new path
 	enforcementConfigPath  = "enforcement-config/"
 	defaultEnforcementName = "default"
+
+	logPrefixEnforcementConfig = "ENFORCEMENT CONFIG: "
 )
 
 type enforcementConfigEntry struct {
@@ -119,7 +121,7 @@ func pathVenafiPolicyList(b *backend) *framework.Path {
 func (b *backend) pathUpdateEnforcementConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, err error) {
 	name := data.Get("name").(string)
 
-	log.Printf("%s Write policy endpoint configuration into storage", logPrefixVenafiPolicyEnforcement)
+	log.Printf("%s Write policy endpoint configuration into storage", logPrefixEnforcementConfig)
 
 	config := &enforcementConfigEntry{
 		AutoRefreshInterval:    int64(data.Get("auto_refresh_interval").(int)),
@@ -161,7 +163,7 @@ func (b *backend) pathUpdateEnforcementConfig(ctx context.Context, req *logical.
 
 func (b *backend) pathReadEnforcementConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
 	name := data.Get("name").(string)
-	log.Printf("%s Trying to read policy for config %s", logPrefixVenafiPolicyEnforcement, name)
+	log.Printf("%s Trying to read policy for config %s", logPrefixEnforcementConfig, name)
 
 	if len(name) == 0 {
 		return logical.ErrorResponse("No config specified or wrong config path name"), nil
@@ -179,7 +181,7 @@ func (b *backend) pathReadEnforcementConfig(ctx context.Context, req *logical.Re
 	var config enforcementConfigEntry
 
 	if err := entry.DecodeJSON(&config); err != nil {
-		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
+		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixEnforcementConfig, err)
 		return nil, err
 	}
 

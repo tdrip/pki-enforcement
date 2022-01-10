@@ -14,6 +14,8 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+const logPrefixEnforcement = "ENFORCEMENT: "
+
 type roleEntry struct {
 	LeaseMax                      string        `json:"lease_max"`
 	Lease                         string        `json:"lease"`
@@ -106,7 +108,7 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 	}
 
 	if csr != nil {
-		log.Printf("%s Checking CSR against zone %v", logPrefixVenafiPolicyEnforcement, role)
+		log.Printf("%s Checking CSR against zone %v", logPrefixEnforcement, role)
 		if isCA {
 			if len(csr.EmailAddresses) != 0 || len(csr.DNSNames) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 {
 				//workaround for setting SAN if CA have normal domain in CN
@@ -164,7 +166,7 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 			if ok {
 				keyValid = checkKey("rsa", pubKey.Size()*8, "", role.AllowedKeyConfigurations)
 			} else {
-				log.Printf("%s invalid key in CSR", logPrefixVenafiPolicyEnforcement)
+				log.Printf("%s invalid key in CSR", logPrefixEnforcement)
 			}
 		} else if csr.PublicKeyAlgorithm == x509.ECDSA {
 			pubKey, ok := csr.PublicKey.(*ecdsa.PublicKey)
@@ -176,7 +178,7 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 			return fmt.Errorf("key type is not allowed by Venafi policies")
 		}
 	} else {
-		log.Printf("%s Checking creation bundle against policy %v", logPrefixVenafiPolicyEnforcement, role)
+		log.Printf("%s Checking creation bundle against policy %v", logPrefixEnforcement, role)
 
 		if isCA {
 			if len(email) != 0 || len(sans) != 0 || len(ipAddresses) != 0 {
@@ -295,7 +297,7 @@ func (role *roleEntry) checkCSR(isCA bool, csr *x509.CertificateRequest) error {
 		if ok {
 			keyValid = checkKey("rsa", pubkey.Size()*8, "", role.AllowedKeyConfigurations)
 		} else {
-			log.Printf("%s invalid key in CSR", logPrefixVenafiPolicyEnforcement)
+			log.Printf("%s invalid key in CSR", logPrefixEnforcement)
 		}
 	} else if csr.PublicKeyAlgorithm == x509.ECDSA {
 		pubkey, ok := csr.PublicKey.(*ecdsa.PublicKey)
