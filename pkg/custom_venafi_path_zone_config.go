@@ -3,6 +3,7 @@ package pki
 import (
 	"context"
 	"crypto/x509"
+	"fmt"
 	"log"
 	"strings"
 
@@ -252,6 +253,21 @@ func (b *backend) getVenafiZoneConfig(ctx context.Context, s *logical.Storage, c
 		return nil, err
 	}
 	return &result, nil
+}
+
+func (b *backend) getConfigWithSecret(ctx context.Context, s *logical.Storage, configname string) (*zoneConfigEntry, error) {
+	config, err := b.getVenafiZoneConfig(ctx, s, configname)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, fmt.Errorf("expected config but got nil from Vault storage %v", config)
+	}
+	if config.VenafiSecret == "" {
+		return nil, fmt.Errorf("empty Venafi secret name")
+	}
+
+	return config, nil
 }
 
 const pathVenafiZoneSyn = `help here`

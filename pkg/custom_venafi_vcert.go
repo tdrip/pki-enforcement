@@ -14,15 +14,9 @@ import (
 
 func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, roleName string) (endpoint.Connector, error) {
 
-	config, err := b.getVenafiZoneConfig(ctx, s, "")
+	config, err := b.getConfigWithSecret(ctx, s, "")
 	if err != nil {
 		return nil, err
-	}
-	if config == nil {
-		return nil, fmt.Errorf("expected policy but got nil from Vault storage %v", config)
-	}
-	if config.VenafiSecret == "" {
-		return nil, fmt.Errorf("empty Venafi secret name")
 	}
 
 	secret, err := b.getVenafiSecret(ctx, s, config.VenafiSecret)
@@ -51,15 +45,9 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 }
 
 func (b *backend) getconfig(ctx context.Context, s *logical.Storage, roleName string) (*venafiSecretEntry, string, error) {
-	config, err := b.getVenafiZoneConfig(ctx, s, "")
+	config, err := b.getConfigWithSecret(ctx, s, "")
 	if err != nil {
 		return nil, "", err
-	}
-	if config == nil {
-		return nil, "", fmt.Errorf("expected Policy config but got nil from Vault storage %v", config)
-	}
-	if config.VenafiSecret == "" {
-		return nil, "", fmt.Errorf("empty Venafi secret name")
 	}
 
 	secret, err := b.getVenafiSecret(ctx, s, config.VenafiSecret)
@@ -92,8 +80,7 @@ func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, ro
 	return secret.getConfig(zone, true)
 }
 
-func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyName string) (
-	endpoint.Connector, error) {
+func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyName string) (endpoint.Connector, error) {
 
 	if policyName == "" {
 		return nil, fmt.Errorf("empty policy name")
@@ -127,8 +114,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyNa
 	return secret.getConnection(config.ParentZone)
 }
 
-func (b *backend) getConfig(ctx context.Context, s *logical.Storage, policyName string) (
-	*vcert.Config, error) {
+func (b *backend) getConfig(ctx context.Context, s *logical.Storage, policyName string) (*vcert.Config, error) {
 
 	if policyName == "" {
 		return nil, fmt.Errorf("empty policy name")
