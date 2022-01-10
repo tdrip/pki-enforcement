@@ -384,14 +384,14 @@ func (role *roleEntry) checkCertCompliance(cert *x509.Certificate) (bool, error)
 	return true, nil
 }
 
-func (r *roleEntry) ToResponseData() map[string]interface{} {
+func (role *roleEntry) ToResponseData() map[string]interface{} {
 	type printKeyConfig struct {
 		KeyType   string
 		KeySizes  []int    `json:",omitempty"`
 		KeyCurves []string `json:",omitempty"`
 	}
-	keyConfigs := make([]string, len(r.AllowedKeyConfigurations))
-	for i, akc := range r.AllowedKeyConfigurations {
+	keyConfigs := make([]string, len(role.AllowedKeyConfigurations))
+	for i, akc := range role.AllowedKeyConfigurations {
 		kc := printKeyConfig{akc.KeyType.String(), akc.KeySizes, nil}
 		if akc.KeyType == certificate.KeyTypeECDSA {
 			kc.KeyCurves = make([]string, len(akc.KeyCurves))
@@ -403,105 +403,96 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		keyConfigs[i] = string(kb)
 	}
 	responseData := map[string]interface{}{
-		"ttl":                                int64(r.TTL.Seconds()),
-		"max_ttl":                            int64(r.MaxTTL.Seconds()),
-		"allow_localhost":                    r.AllowLocalhost,
-		"allowed_domains":                    r.AllowedDomains,
-		"allowed_domains_template":           r.AllowedDomainsTemplate,
-		"allow_bare_domains":                 r.AllowBareDomains,
-		"allow_token_displayname":            r.AllowTokenDisplayName,
-		"allow_subdomains":                   r.AllowSubdomains,
-		"allow_glob_domains":                 r.AllowGlobDomains,
-		"allow_any_name":                     r.AllowAnyName,
-		"enforce_hostnames":                  r.EnforceHostnames,
-		"allow_ip_sans":                      r.AllowIPSANs,
-		"server_flag":                        r.ServerFlag,
-		"client_flag":                        r.ClientFlag,
-		"code_signing_flag":                  r.CodeSigningFlag,
-		"email_protection_flag":              r.EmailProtectionFlag,
-		"use_csr_common_name":                r.UseCSRCommonName,
-		"use_csr_sans":                       r.UseCSRSANs,
-		"key_type":                           r.KeyType,
-		"key_bits":                           r.KeyBits,
-		"key_usage":                          r.KeyUsage,
-		"ext_key_usage":                      r.ExtKeyUsage,
-		"ext_key_usage_oids":                 r.ExtKeyUsageOIDs,
-		"ou":                                 r.OU,
-		"organization":                       r.Organization,
-		"country":                            r.Country,
-		"locality":                           r.Locality,
-		"province":                           r.Province,
-		"street_address":                     r.StreetAddress,
-		"postal_code":                        r.PostalCode,
-		"no_store":                           r.NoStore,
-		"allowed_other_sans":                 r.AllowedOtherSANs,
-		"allowed_serial_numbers":             r.AllowedSerialNumbers,
-		"allowed_uri_sans":                   r.AllowedURISANs,
-		"require_cn":                         r.RequireCN,
-		"policy_identifiers":                 r.PolicyIdentifiers,
-		"basic_constraints_valid_for_non_ca": r.BasicConstraintsValidForNonCA,
-		"not_before_duration":                int64(r.NotBeforeDuration.Seconds()),
-		"zone":                               r.Zone,
-		"last_zone_update_time":              r.LastZoneUpdateTime,
-		"subject_cn_regexes":                 r.SubjectCNRegexes,
-		"subject_o_regexes":                  r.SubjectORegexes,
-		"subject_ou_regexes":                 r.SubjectOURegexes,
-		"subject_st_regexes":                 r.SubjectSTRegexes,
-		"subject_l_regexes":                  r.SubjectLRegexes,
-		"subject_c_regexes":                  r.SubjectCRegexes,
+		"ttl":                                int64(role.TTL.Seconds()),
+		"max_ttl":                            int64(role.MaxTTL.Seconds()),
+		"allow_localhost":                    role.AllowLocalhost,
+		"allowed_domains":                    role.AllowedDomains,
+		"allowed_domains_template":           role.AllowedDomainsTemplate,
+		"allow_bare_domains":                 role.AllowBareDomains,
+		"allow_token_displayname":            role.AllowTokenDisplayName,
+		"allow_subdomains":                   role.AllowSubdomains,
+		"allow_glob_domains":                 role.AllowGlobDomains,
+		"allow_any_name":                     role.AllowAnyName,
+		"enforce_hostnames":                  role.EnforceHostnames,
+		"allow_ip_sans":                      role.AllowIPSANs,
+		"server_flag":                        role.ServerFlag,
+		"client_flag":                        role.ClientFlag,
+		"code_signing_flag":                  role.CodeSigningFlag,
+		"email_protection_flag":              role.EmailProtectionFlag,
+		"use_csr_common_name":                role.UseCSRCommonName,
+		"use_csr_sans":                       role.UseCSRSANs,
+		"key_type":                           role.KeyType,
+		"key_bits":                           role.KeyBits,
+		"key_usage":                          role.KeyUsage,
+		"ext_key_usage":                      role.ExtKeyUsage,
+		"ext_key_usage_oids":                 role.ExtKeyUsageOIDs,
+		"ou":                                 role.OU,
+		"organization":                       role.Organization,
+		"country":                            role.Country,
+		"locality":                           role.Locality,
+		"province":                           role.Province,
+		"street_address":                     role.StreetAddress,
+		"postal_code":                        role.PostalCode,
+		"no_store":                           role.NoStore,
+		"allowed_other_sans":                 role.AllowedOtherSANs,
+		"allowed_serial_numbers":             role.AllowedSerialNumbers,
+		"allowed_uri_sans":                   role.AllowedURISANs,
+		"require_cn":                         role.RequireCN,
+		"policy_identifiers":                 role.PolicyIdentifiers,
+		"basic_constraints_valid_for_non_ca": role.BasicConstraintsValidForNonCA,
+		"not_before_duration":                int64(role.NotBeforeDuration.Seconds()),
+		"zone":                               role.Zone,
+		"last_zone_update_time":              role.LastZoneUpdateTime,
+		"subject_cn_regexes":                 role.SubjectCNRegexes,
+		"subject_o_regexes":                  role.SubjectORegexes,
+		"subject_ou_regexes":                 role.SubjectOURegexes,
+		"subject_st_regexes":                 role.SubjectSTRegexes,
+		"subject_l_regexes":                  role.SubjectLRegexes,
+		"subject_c_regexes":                  role.SubjectCRegexes,
 		"allowed_key_configurations":         keyConfigs,
-		"dns_san_regexes":                    r.DnsSanRegExs,
-		"ip_san_regexes":                     r.IpSanRegExs,
-		"email_san_regexes":                  r.EmailSanRegExs,
-		"uri_san_regexes":                    r.UriSanRegExs,
-		"upn_san_regexes":                    r.UpnSanRegExs,
-		"allow_wildcards":                    r.AllowWildcards,
-		"allow_key_reuse":                    r.AllowKeyReuse,
+		"dns_san_regexes":                    role.DnsSanRegExs,
+		"ip_san_regexes":                     role.IpSanRegExs,
+		"email_san_regexes":                  role.EmailSanRegExs,
+		"uri_san_regexes":                    role.UriSanRegExs,
+		"upn_san_regexes":                    role.UpnSanRegExs,
+		"allow_wildcards":                    role.AllowWildcards,
+		"allow_key_reuse":                    role.AllowKeyReuse,
 	}
-	if r.MaxPathLength != nil {
-		responseData["max_path_length"] = r.MaxPathLength
+	if role.MaxPathLength != nil {
+		responseData["max_path_length"] = role.MaxPathLength
 	}
-	if r.GenerateLease != nil {
-		responseData["generate_lease"] = r.GenerateLease
+	if role.GenerateLease != nil {
+		responseData["generate_lease"] = role.GenerateLease
 	}
 	return responseData
 }
 
-func (pkiRoleEntry *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage, roleName string, policyName string) (msg string) {
+func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage, roleName string) (msg string) {
 
-	entry, err := storage.Get(ctx, venafiPolicyPath+policyName)
-	if err != nil {
-		return fmt.Sprintf("%s", err)
-	}
-
-	if entry == nil {
-		return "entry is nil"
-	}
-
-	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, policyName, pkiRoleEntry.Zone)
+	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, "", role.Zone)
 	if err != nil {
 		return fmt.Sprintf("%s", err)
 	}
 
 	//  Replace PKI entry with Venafi policy values
-	replacePKIValue(&pkiRoleEntry.OU, venafiPolicyEntry.OU)
-	replacePKIValue(&pkiRoleEntry.Organization, venafiPolicyEntry.Organization)
-	replacePKIValue(&pkiRoleEntry.Country, venafiPolicyEntry.Country)
-	replacePKIValue(&pkiRoleEntry.Locality, venafiPolicyEntry.Locality)
-	replacePKIValue(&pkiRoleEntry.Province, venafiPolicyEntry.Province)
-	replacePKIValue(&pkiRoleEntry.StreetAddress, venafiPolicyEntry.StreetAddress)
-	replacePKIValue(&pkiRoleEntry.PostalCode, venafiPolicyEntry.PostalCode)
+	replacePKIValue(&role.OU, venafiPolicyEntry.OU)
+	replacePKIValue(&role.Organization, venafiPolicyEntry.Organization)
+	replacePKIValue(&role.Country, venafiPolicyEntry.Country)
+	replacePKIValue(&role.Locality, venafiPolicyEntry.Locality)
+	replacePKIValue(&role.Province, venafiPolicyEntry.Province)
+	replacePKIValue(&role.StreetAddress, venafiPolicyEntry.StreetAddress)
+	replacePKIValue(&role.PostalCode, venafiPolicyEntry.PostalCode)
 
 	//does not have to configure the role to limit domains
 	// because the Venafi policy already constrains that area
-	pkiRoleEntry.AllowAnyName = true
-	pkiRoleEntry.AllowedDomains = []string{}
-	pkiRoleEntry.AllowSubdomains = true
+	role.AllowAnyName = true
+	role.AllowedDomains = []string{}
+	role.AllowSubdomains = true
 	//TODO: we need to sync key settings as well. But before it we need to add key type to zone configuration
 	//in vcert SDK
 
 	// Put new entry
-	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, pkiRoleEntry)
+	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, role)
 	if err != nil {
 		return fmt.Sprintf("Error creating json entry for storage: %s", err)
 	}
