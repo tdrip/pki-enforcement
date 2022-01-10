@@ -12,11 +12,6 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-//Set it false to disable Venafi policy check. It can be done only on the code level of the plugin.
-const venafiPolicyCheck = true
-
-var venafiPolicyDenyAll = true
-
 func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, roleName string) (endpoint.Connector, error) {
 
 	config, err := b.getVenafiZoneConfig(ctx, s, "")
@@ -55,7 +50,7 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 
 }
 
-func (b *backend) getconfig(ctx context.Context, s *logical.Storage) (*venafiSecretEntry, string, error) {
+func (b *backend) getconfig(ctx context.Context, s *logical.Storage, roleName string) (*venafiSecretEntry, string, error) {
 	config, err := b.getVenafiZoneConfig(ctx, s, "")
 	if err != nil {
 		return nil, "", err
@@ -75,6 +70,9 @@ func (b *backend) getconfig(ctx context.Context, s *logical.Storage) (*venafiSec
 		return nil, "", fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
 	}
 
+	// We will use the zone of the client and add the role name to this zone to get the details
+	// this makes for a simpler implementation
+
 	zone := ""
 
 	if config.ParentZone != "" {
@@ -87,7 +85,7 @@ func (b *backend) getconfig(ctx context.Context, s *logical.Storage) (*venafiSec
 }
 
 func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, roleName string) (*vcert.Config, error) {
-	secret, zone, err := b.getconfig(ctx, s)
+	secret, zone, err := b.getconfig(ctx, s, roleName)
 	if err != nil {
 		return nil, err
 	}
