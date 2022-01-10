@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+var venafiPolicyDenyAll = true
+
 func checkAgainstVenafiZone(req *logical.Request, role *roleEntry, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
 
 	if len(role.Zone) == 0 {
