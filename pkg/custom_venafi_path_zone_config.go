@@ -12,15 +12,15 @@ import (
 const (
 
 	// To be removed- left to compile
-	venafiRolePolicyMapStorage  = "venafi-role-policy-map"
-	venafiPolicyPath            = "venafi-policy/"
-	defaultVenafiPolicyName     = "default"
-	policyFieldEnforcementRoles = "enforcement_roles"
-	policyFieldDefaultsRoles    = "defaults_roles"
-	policyFieldImportRoles      = "import_roles"
-	policyFieldCreateRole       = "create_role"
-	venafiRolePolicyMapPath     = "show-venafi-role-policy-map"
-	errPolicyMapDoesNotExists   = "policy map does not exists"
+	//venafiRolePolicyMapStorage  = "venafi-role-policy-map"
+	venafiPolicyPath        = "venafi-policy/"
+	defaultVenafiPolicyName = "default"
+	//policyFieldEnforcementRoles = "enforcement_roles"
+	//policyFieldDefaultsRoles    = "defaults_roles"
+	policyFieldImportRoles    = "import_roles"
+	policyFieldCreateRole     = "create_role"
+	venafiRolePolicyMapPath   = "show-venafi-role-policy-map"
+	errPolicyMapDoesNotExists = "policy map does not exists"
 
 	// new path
 	venafiZoneConfigPath  = "venafi-zone-config/"
@@ -121,7 +121,7 @@ func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.R
 		VenafiImportTimeout:    data.Get("import_timeout").(int),
 		VenafiImportWorkers:    data.Get("import_workers").(int),
 		VenafiSecret:           data.Get("venafi_secret").(string),
-		Zone:                   data.Get("zone").(string),
+		ParentZone:             data.Get("parent_zone").(string),
 		ImportOnlyNonCompliant: data.Get("import_only_non_compliant").(bool),
 	}
 	unparsedKeyUsage := data.Get("ext_key_usage").([]string)
@@ -140,7 +140,7 @@ func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.R
 	//Send config to the user output
 	respData := map[string]interface{}{
 		"venafi_secret":             config.VenafiSecret,
-		"zone":                      config.Zone,
+		"parent_zone":               config.ParentZone,
 		"auto_refresh_interval":     config.AutoRefreshInterval,
 		"last_policy_update_time":   config.LastPolicyUpdateTime,
 		"import_timeout":            config.VenafiImportTimeout,
@@ -181,7 +181,7 @@ func (b *backend) pathReadVenafiZoneConfig(ctx context.Context, req *logical.Req
 	//Send config to the user output
 	respData := map[string]interface{}{
 		"venafi_secret":             config.VenafiSecret,
-		"zone":                      config.Zone,
+		"parent_zone":               config.ParentZone,
 		"auto_refresh_interval":     config.AutoRefreshInterval,
 		"last_policy_update_time":   config.LastPolicyUpdateTime,
 		"import_timeout":            config.VenafiImportTimeout,

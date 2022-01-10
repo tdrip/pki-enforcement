@@ -43,9 +43,9 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 
 	zone := ""
 
-	if config.Zone != "" {
-		b.Logger().Debug("Using zone from Venafi Config.", "zone", config.Zone)
-		zone = config.Zone + "\\" + roleName
+	if config.ParentZone != "" {
+		b.Logger().Debug("Using zone from Venafi Config.", "zone", config.ParentZone)
+		zone = config.ParentZone + "\\" + roleName
 	} else {
 		b.Logger().Debug("Using zone from Venafi secret since Policy zone not found.", "zone", secret.Zone)
 		zone = secret.Zone + "\\" + roleName
@@ -55,34 +55,43 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 
 }
 
-func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, roleName string) (*vcert.Config, error) {
-
+func (b *backend) getconfig(ctx context.Context, s *logical.Storage) (*venafiSecretEntry, string, error) {
 	config, err := b.getVenafiZoneConfig(ctx, s, "")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if config == nil {
-		return nil, fmt.Errorf("expected Policy config but got nil from Vault storage %v", config)
+		return nil, "", fmt.Errorf("expected Policy config but got nil from Vault storage %v", config)
 	}
 	if config.VenafiSecret == "" {
-		return nil, fmt.Errorf("empty Venafi secret name")
+		return nil, "", fmt.Errorf("empty Venafi secret name")
 	}
 
 	secret, err := b.getVenafiSecret(ctx, s, config.VenafiSecret)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if secret == nil {
-		return nil, fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
+		return nil, "", fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
 	}
 
-	if config.Zone != "" {
-		b.Logger().Debug("Using zone [%s] from Policy.", config.Zone)
+	zone := ""
+
+	if config.ParentZone != "" {
+		b.Logger().Debug("Using zone [%s] from Policy.", config.ParentZone)
 	} else {
 		b.Logger().Debug("Using zone [%s] from venafi secret. Policy zone not found.", secret.Zone)
 	}
 
-	return secret.getConfig(config.Zone, true)
+	return secret, zone, nil
+}
+
+func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, roleName string) (*vcert.Config, error) {
+	secret, zone, err := b.getconfig(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	return secret.getConfig(zone, true)
 }
 
 func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyName string) (
@@ -111,13 +120,13 @@ func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, policyNa
 		return nil, fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
 	}
 
-	if config.Zone != "" {
-		b.Logger().Debug("Using zone from Venafi Policy.", "zone", config.Zone)
+	if config.ParentZone != "" {
+		b.Logger().Debug("Using zone from Venafi Policy.", "zone", config.ParentZone)
 	} else {
 		b.Logger().Debug("Using zone from Venafi secret since Policy zone not found.", "zone", secret.Zone)
 	}
 
-	return secret.getConnection(config.Zone)
+	return secret.getConnection(config.ParentZone)
 }
 
 func (b *backend) getConfig(ctx context.Context, s *logical.Storage, policyName string) (
@@ -146,13 +155,13 @@ func (b *backend) getConfig(ctx context.Context, s *logical.Storage, policyName 
 		return nil, fmt.Errorf("expected Venafi secret but got nil from Vault storage %v", secret)
 	}
 
-	if config.Zone != "" {
-		b.Logger().Debug("Using zone [%s] from Policy.", config.Zone)
+	if config.ParentZone != "" {
+		b.Logger().Debug("Using zone [%s] from Policy.", config.ParentZone)
 	} else {
 		b.Logger().Debug("Using zone [%s] from venafi secret. Policy zone not found.", secret.Zone)
 	}
 
-	return secret.getConfig(config.Zone, true)
+	return secret.getConfig(config.ParentZone, true)
 }
 
 func pp(a interface{}) string {

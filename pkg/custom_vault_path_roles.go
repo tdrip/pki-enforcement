@@ -590,7 +590,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	}
 
 	// we do not have a specific zone so we can calculate it
-	updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, &req.Storage, "", entry)
+	updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, &req.Storage, entry)
 	if err != nil {
 		return logical.ErrorResponse("getZoneFromVenafi failed with: %v", err), err
 	}

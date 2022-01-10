@@ -20,7 +20,7 @@ type zoneConfigEntry struct {
 	VenafiImportTimeout    int                `json:"import_timeout"`
 	VenafiImportWorkers    int                `json:"import_workers"`
 	VenafiSecret           string             `json:"venafi_secret"`
-	Zone                   string             `json:"zone"`
+	ParentZone             string             `json:"parent_zone"`
 	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
 }
 
@@ -242,7 +242,7 @@ func checkCSRAgainstZoneEntry(isCA bool, csr *x509.CertificateRequest, zone role
 	return nil
 }
 
-func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, role string) (policy *endpoint.Policy, err error) {
+func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixVenafiPolicyEnforcement)
 
 	cl, err := b.RoleBasedClientVenafi(ctx, storage, role)
@@ -263,7 +263,7 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-			cfg, err := b.getRoleBasedConfig(ctx, storage, zone, role)
+			cfg, err := b.getRoleBasedConfig(ctx, storage, role)
 
 			if err != nil {
 				return nil, err
@@ -277,7 +277,7 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, err := b.RoleBasedClientVenafi(ctx, storage, zone, role)
+				cl, err := b.RoleBasedClientVenafi(ctx, storage, role)
 				if err != nil {
 					return nil, err
 				}
@@ -307,10 +307,10 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 	return
 }
 
-func (b *backend) updateRoleEntryFromVenafi(ctx context.Context, storage *logical.Storage, path string, role *roleEntry) (zoneentry *roleEntry, err error) {
+func (b *backend) updateRoleEntryFromVenafi(ctx context.Context, storage *logical.Storage, role *roleEntry) (zoneentry *roleEntry, err error) {
 
 	// grab the zone from Venafi
-	zone, err := b.getZoneFromVenafi(ctx, storage, path, role.Name)
+	zone, err := b.getZoneFromVenafi(ctx, storage, "", role.Name)
 	if err != nil {
 		return nil, err
 	}
