@@ -466,3 +466,57 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 	}
 	return responseData
 }
+
+func (pkiRoleEntry *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage, roleName string, policyName string) (msg string) {
+	//	Read previous role parameters
+	//pkiRoleEntry, err := b.getPKIRoleEntry(ctx, storage, roleName)
+	//if err != nil {
+	//	return fmt.Sprintf("%s", err)
+	//}
+
+	if pkiRoleEntry == nil {
+		return fmt.Sprintf("PKI role %s is empty or does not exist", roleName)
+	}
+
+	entry, err := storage.Get(ctx, venafiPolicyPath+policyName)
+	if err != nil {
+		return fmt.Sprintf("%s", err)
+	}
+
+	if entry == nil {
+		return "entry is nil"
+	}
+
+	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, policyName, pkiRoleEntry.Zone)
+	if err != nil {
+		return fmt.Sprintf("%s", err)
+	}
+
+	//  Replace PKI entry with Venafi policy values
+	replacePKIValue(&pkiRoleEntry.OU, venafiPolicyEntry.OU)
+	replacePKIValue(&pkiRoleEntry.Organization, venafiPolicyEntry.Organization)
+	replacePKIValue(&pkiRoleEntry.Country, venafiPolicyEntry.Country)
+	replacePKIValue(&pkiRoleEntry.Locality, venafiPolicyEntry.Locality)
+	replacePKIValue(&pkiRoleEntry.Province, venafiPolicyEntry.Province)
+	replacePKIValue(&pkiRoleEntry.StreetAddress, venafiPolicyEntry.StreetAddress)
+	replacePKIValue(&pkiRoleEntry.PostalCode, venafiPolicyEntry.PostalCode)
+
+	//does not have to configure the role to limit domains
+	// because the Venafi policy already constrains that area
+	pkiRoleEntry.AllowAnyName = true
+	pkiRoleEntry.AllowedDomains = []string{}
+	pkiRoleEntry.AllowSubdomains = true
+	//TODO: we need to sync key settings as well. But before it we need to add key type to zone configuration
+	//in vcert SDK
+
+	// Put new entry
+	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, pkiRoleEntry)
+	if err != nil {
+		return fmt.Sprintf("Error creating json entry for storage: %s", err)
+	}
+	if err := storage.Put(ctx, jsonEntry); err != nil {
+		return fmt.Sprintf("Error putting entry to storage: %s", err)
+	}
+
+	return fmt.Sprintf("finished synchronizing role %s", roleName)
+}
