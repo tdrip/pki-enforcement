@@ -548,9 +548,6 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	var err error
 	name := data.Get("name").(string)
 
-	// using custom imort custom config?
-	zonePath := data.Get("import_config").(string)
-
 	entry := &roleEntry{
 		MaxTTL:                        time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:                           time.Duration(data.Get("ttl").(int)) * time.Second,
@@ -590,10 +587,10 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
 		NotBeforeDuration:             time.Duration(data.Get("not_before_duration").(int)) * time.Second,
 		Name:                          name,
-		//ZoneEntry:                     zoneEntry,
 	}
 
-	updatedEntry, err := b.getRoleEntryFromVenafi(ctx, &req.Storage, zonePath, entry)
+	// we do not have a specific zone so we can calculate it
+	updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, &req.Storage, "", entry)
 	if err != nil {
 		return logical.ErrorResponse("getZoneFromVenafi failed with: %v", err), err
 	}
@@ -878,21 +875,22 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"policy_identifiers":                 r.PolicyIdentifiers,
 		"basic_constraints_valid_for_non_ca": r.BasicConstraintsValidForNonCA,
 		"not_before_duration":                int64(r.NotBeforeDuration.Seconds()),
-		//"zone_entry":                         r.ZoneEntry,
-		"subject_cn_regexes":         r.SubjectCNRegexes,
-		"subject_o_regexes":          r.SubjectORegexes,
-		"subject_ou_regexes":         r.SubjectOURegexes,
-		"subject_st_regexes":         r.SubjectSTRegexes,
-		"subject_l_regexes":          r.SubjectLRegexes,
-		"subject_c_regexes":          r.SubjectCRegexes,
-		"allowed_key_configurations": keyConfigs,
-		"dns_san_regexes":            r.DnsSanRegExs,
-		"ip_san_regexes":             r.IpSanRegExs,
-		"email_san_regexes":          r.EmailSanRegExs,
-		"uri_san_regexes":            r.UriSanRegExs,
-		"upn_san_regexes":            r.UpnSanRegExs,
-		"allow_wildcards":            r.AllowWildcards,
-		"allow_key_reuse":            r.AllowKeyReuse,
+		"zone":                               r.Zone,
+		"last_zone_update_time":              r.LastZoneUpdateTime,
+		"subject_cn_regexes":                 r.SubjectCNRegexes,
+		"subject_o_regexes":                  r.SubjectORegexes,
+		"subject_ou_regexes":                 r.SubjectOURegexes,
+		"subject_st_regexes":                 r.SubjectSTRegexes,
+		"subject_l_regexes":                  r.SubjectLRegexes,
+		"subject_c_regexes":                  r.SubjectCRegexes,
+		"allowed_key_configurations":         keyConfigs,
+		"dns_san_regexes":                    r.DnsSanRegExs,
+		"ip_san_regexes":                     r.IpSanRegExs,
+		"email_san_regexes":                  r.EmailSanRegExs,
+		"uri_san_regexes":                    r.UriSanRegExs,
+		"upn_san_regexes":                    r.UpnSanRegExs,
+		"allow_wildcards":                    r.AllowWildcards,
+		"allow_key_reuse":                    r.AllowKeyReuse,
 	}
 	if r.MaxPathLength != nil {
 		responseData["max_path_length"] = r.MaxPathLength
