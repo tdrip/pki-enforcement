@@ -467,11 +467,24 @@ func (role *roleEntry) ToResponseData() map[string]interface{} {
 	return responseData
 }
 
-func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage, roleName string) (msg string) {
+func (role *roleEntry) store(ctx context.Context, storage logical.Storage) error {
+	// Store it
+	jsonEntry, err := logical.StorageEntryJSON("role/"+role.Name, role)
+	if err != nil {
+		return err
+	}
+	if err := storage.Put(ctx, jsonEntry); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage) (msg string, error) {
 
 	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, "", role.Zone)
 	if err != nil {
-		return fmt.Sprintf("%s", err)
+		return fmt.Sprintf("%s", err), err
 	}
 
 	//  Replace PKI entry with Venafi policy values
@@ -492,13 +505,10 @@ func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, 
 	//in vcert SDK
 
 	// Put new entry
-	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, role)
+	err = role.store(ctx, storage)
 	if err != nil {
-		return fmt.Sprintf("Error creating json entry for storage: %s", err)
-	}
-	if err := storage.Put(ctx, jsonEntry); err != nil {
-		return fmt.Sprintf("Error putting entry to storage: %s", err)
+		return fmt.Sprintf("%s", err), err
 	}
 
-	return fmt.Sprintf("finished synchronizing role %s", roleName)
+	return fmt.Sprintf("finished synchronizing role %s", role.Name), nil
 }
