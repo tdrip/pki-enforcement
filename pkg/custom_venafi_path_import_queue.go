@@ -259,7 +259,7 @@ func (b *backend) processImportToTPP(job Job) string {
 		return fmt.Sprintf("%s Could not get certificate from entry %s: %s", msg, importPath+job.entry, err)
 	}
 	if job.importOnlyNonCompliant {
-		valid, err := role.checkCertMatchPolicy(Certificate)
+		valid, err := role.checkCertCompliance(Certificate)
 		if err != nil {
 			return fmt.Sprintf("Failed checking certificate compliance with policies: %v", err)
 		}

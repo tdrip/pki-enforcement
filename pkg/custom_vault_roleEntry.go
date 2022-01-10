@@ -309,7 +309,7 @@ func (role *roleEntry) checkCSR(isCA bool, csr *x509.CertificateRequest) error {
 	return nil
 }
 
-func (role *roleEntry) checkCertMatchPolicy(cert *x509.Certificate) (bool, error) {
+func (role *roleEntry) checkCertCompliance(cert *x509.Certificate) (bool, error) {
 	var req x509.CertificateRequest
 	req.Subject = cert.Subject
 	req.Extensions = cert.Extensions
