@@ -129,74 +129,26 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 			continue
 		}
 
-		pkiRoleEntry.synchronizeRoleDefaults(b, ctx, b.storage, roleName, "")
+		// we don't need to synchronise defaults
+		// just grab the new fields
+		//pkiRoleEntry.synchronizeRoleDefaults(b, ctx, b.storage, roleName)
 
-	}
-	/*
-		for _, policyName := range policies {
-
-			policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyName)
-			if err != nil {
-				log.Printf("%s Error getting policy config for policy %s: %s", logPrefixEnforcementSync, policyName, err)
-				continue
-			}
-
-			if policyConfig == nil {
-				log.Printf("%s Policy config for %s is nil. Skipping", logPrefixEnforcementSync, policyName)
-				continue
-			}
-
-			log.Printf("%s check last policy updated time", logPrefixEnforcementSync)
-			timePassed := time.Now().Unix() - policyConfig.LastPolicyUpdateTime
-
-			//update only if needed
-			//TODO: Make test to check this refresh
-			if (timePassed) < policyConfig.AutoRefreshInterval {
-				continue
-			}
-
-			//Refresh Venafi policy regexes
-			err = b.refreshVenafiPolicyEnforcementContent(b.storage, policyName)
-			if err != nil {
-				log.Printf("%s Error  refreshing venafi policy content: %s", logPrefixEnforcementSync, err)
-				continue
-			}
-			//Refresh roles defaults
-			//Get role list with role sync param
-			rolesList, err := b.getRolesListForVenafiPolicy(ctx, b.storage, policyName)
-			if err != nil {
-				continue
-			}
-
-			if len(rolesList.defaultsRoles) == 0 {
-				log.Printf("%s No roles found for refreshing defaults in policy %s", logPrefixVenafiRoleyDefaults, policyName)
-				continue
-			}
-
-			for _, roleName := range rolesList.defaultsRoles {
-				log.Printf("Synchronizing role %s", roleName)
-				msg := b.synchronizeRoleDefaults(ctx, b.storage, roleName, policyName)
-				log.Printf("%s %s", logPrefixVenafiRoleyDefaults, msg)
-			}
-
-			//policy config's credentials may be got updated so get it from storage again before saving it.
-			policyConfig, _ = b.getVenafiPolicyConfig(ctx, &b.storage, policyName)
-
-			//set new last updated
-			policyConfig.LastPolicyUpdateTime = time.Now().Unix()
-
-			//put new policy entry with updated time value
-			jsonEntry, err := logical.StorageEntryJSON(venafiPolicyPath+policyName, policyConfig)
-			if err != nil {
-				return fmt.Errorf("Error converting policy config into JSON: %s", err)
-
-			}
-			if err := b.storage.Put(ctx, jsonEntry); err != nil {
-				return fmt.Errorf("Error saving policy last update time: %s", err)
-
-			}
+		// we do not have a specific zone so we can calculate it
+		updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, b.storage, pkiRoleEntry)
+		if err != nil {
+			return err
 		}
-	*/
+
+		pkiRoleEntry = updatedEntry
+
+		//set new last updated
+		pkiRoleEntry.LastZoneUpdateTime = time.Now().Unix()
+
+		err = pkiRoleEntry.store(ctx, b.storage)
+		if err != nil {
+			return err
+		}
+	}
 	return err
 }
 
