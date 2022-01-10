@@ -13,8 +13,7 @@ import (
 
 const (
 	// To be removed - left to compile
-	venafiPolicyPath        = "venafi-policy/"
-	defaultVenafiPolicyName = "default"
+	venafiPolicyPath = "venafi-policy/"
 
 	// new path
 	enforcementConfigPath  = "enforcement-config/"
@@ -24,14 +23,24 @@ const (
 )
 
 type enforcementConfigEntry struct {
-	ExtKeyUsage            []x509.ExtKeyUsage `json:"ext_key_usage"`
-	AutoRefreshInterval    int64              `json:"auto_refresh_interval"`
-	LastPolicyUpdateTime   int64              `json:"last_policy_update_time"`
-	VenafiImportTimeout    int                `json:"import_timeout"`
-	VenafiImportWorkers    int                `json:"import_workers"`
-	VenafiSecret           string             `json:"venafi_secret"`
-	ParentZone             string             `json:"parent_zone"`
-	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
+
+	// This is zone refresh configuration
+	AutoRefreshInterval  int64 `json:"auto_refresh_interval"`
+	LastPolicyUpdateTime int64 `json:"last_policy_update_time"`
+
+	// This is configuration for the Venafi Import tasks
+	VenafiImportTimeout    int  `json:"import_timeout"`
+	VenafiImportWorkers    int  `json:"import_workers"`
+	ImportOnlyNonCompliant bool `json:"import_only_non_compliant"`
+
+	// This is for vcert client configuration (Secret)
+	VenafiSecret string `json:"venafi_secret"`
+
+	// this is the path for import and enforcement
+	ParentZone string `json:"parent_zone"`
+
+	// These are for enforcement
+	ExtKeyUsage []x509.ExtKeyUsage `json:"ext_key_usage"`
 }
 
 func pathEnforcementConfig(b *backend) *framework.Path {
@@ -40,7 +49,7 @@ func pathEnforcementConfig(b *backend) *framework.Path {
 		Fields: map[string]*framework.FieldSchema{
 			"name": {
 				Type:        framework.TypeString,
-				Description: "Name of the Venafi zone config",
+				Description: "Name of the Enforcement config",
 			},
 			"ext_key_usage": {
 				Type:    framework.TypeCommaStringSlice,
@@ -85,20 +94,20 @@ Example for Venafi Cloud: Default`,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.pathUpdateEnforcementConfig,
-				Summary:  "Configure the settings of a Venafi policy",
+				Summary:  "Configure the settings of a enforcement",
 			},
 			logical.ReadOperation: &framework.PathOperation{
 				Callback: b.pathReadEnforcementConfig,
-				Summary:  "Return the Venafi zone config specified in path",
+				Summary:  "Return the enforcement config specified in path",
 			},
 			logical.DeleteOperation: &framework.PathOperation{
 				Callback: b.pathDeleteEnforcementConfig,
-				Summary:  "Removes the Venafi policy specified in path",
+				Summary:  "Removes the enforcement specified in path",
 			},
 		},
 
-		HelpSynopsis:    pathVenafiZoneSyn,
-		HelpDescription: pathVenafiZoneDesc,
+		HelpSynopsis:    pathEnforcementSyn,
+		HelpDescription: pathEnforcementDesc,
 	}
 	return ret
 }
@@ -272,5 +281,5 @@ func (b *backend) getConfigWithSecret(ctx context.Context, s *logical.Storage, c
 	return config, nil
 }
 
-const pathVenafiZoneSyn = `help here`
-const pathVenafiZoneDesc = `description here`
+const pathEnforcementSyn = `help here`
+const pathEnforcementDesc = `description here`
