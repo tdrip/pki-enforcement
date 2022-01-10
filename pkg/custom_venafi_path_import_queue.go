@@ -42,7 +42,6 @@ func pathImportQueue(b *backend) *framework.Path {
 			logical.ReadOperation: b.pathUpdateImportQueue,
 			//TODO: add delete operation to stop import queue and delete it
 			//TODO: add delete operation to delete particular import record
-
 		},
 
 		HelpSynopsis:    pathImportQueueSyn,
@@ -173,32 +172,24 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 		log.Printf("%s Couldn't get list of roles %s", logPrefixVenafiImport, err)
 		return
 	}
-	/*
-		policyMap, err := getPolicyRoleMap(ctx, b.storage)
+
+	for i := range roles {
+		roleName := roles[i]
+
+		//Update role since it's settings may be changed
+		role, err := b.getRole(ctx, b.storage, roleName)
 		if err != nil {
-			log.Printf("Can't get policy map: %s", err)
-			return
+			log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
+			continue
 		}
 
-		for i := range roles {
-			roleName := roles[i]
-			if policyMap.Roles[roleName].ImportPolicy == "" {
-				//no import policy defined for role. Skipping
-				continue
-			}
+		if role == nil {
+			log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
+			continue
+		}
 
-			//Update role since it's settings may be changed
-			role, err := b.getRole(ctx, b.storage, roleName)
-			if err != nil {
-				log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
-				continue
-			}
-
-			if role == nil {
-				log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
-				continue
-			}
-
+		// Add Role stuff here
+		/*
 			policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
 			if err != nil || policyConfig == nil {
 				log.Printf("%s Error getting policy %v: %v\n Exiting.", logPrefixVenafiImport, policyMap.Roles[roleName].ImportPolicy, err)
@@ -211,9 +202,8 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 				policyConfig, _ := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
 				b.fillImportQueueTask(roleName, policyMap.Roles[roleName].ImportPolicy, policyConfig.VenafiImportWorkers, b.storage, policyConfig.ImportOnlyNonCompliant, conf)
 			}, 1, time.Duration(policyConfig.VenafiImportTimeout)*time.Second)
-
-		}
-	*/
+		*/
+	}
 
 	stringInSlice := func(s string, sl []string) bool {
 		for i := range sl {
@@ -236,9 +226,20 @@ func (b *backend) processImportToTPP(job Job) string {
 	msg := fmt.Sprintf("Job id: %v ###", job.id)
 	importPath := job.importPath
 	log.Printf("%s %s Trying to import certificate with SN %s", logPrefixVenafiImport, msg, job.entry)
-	cl, err := b.RoleBasedClientVenafi(job.ctx, job.storage, job.policyName)
+	cl, err := b.RoleBasedClientVenafi(job.ctx, job.storage, job.roleName)
 	if err != nil {
 		return fmt.Sprintf("%s Could not create venafi client: %s", msg, err)
+	}
+
+	role, err := b.getRole(job.ctx, *job.storage, job.roleName)
+	if err != nil {
+		log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
+		return err.Error()
+	}
+
+	if role == nil {
+		log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
+		return err.Error()
 	}
 
 	certEntry, err := (*job.storage).Get(job.ctx, importPath+job.entry)
@@ -258,7 +259,7 @@ func (b *backend) processImportToTPP(job Job) string {
 		return fmt.Sprintf("%s Could not get certificate from entry %s: %s", msg, importPath+job.entry, err)
 	}
 	if job.importOnlyNonCompliant {
-		valid, err := b.checkCertMatchPolicy(Certificate, job.policyName)
+		valid, err := b.checkCertMatchPolicy(Certificate, role)
 		if err != nil {
 			return fmt.Sprintf("Failed checking certificate compliance with policies: %v", err)
 		}
@@ -357,7 +358,7 @@ func (b *backend) processImportToTPP(job Job) string {
 
 }
 
-func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, policyName string) (bool, error) {
+func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, role *roleEntry) (bool, error) {
 	var req x509.CertificateRequest
 	req.Subject = cert.Subject
 	req.Extensions = cert.Extensions
@@ -367,21 +368,7 @@ func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, policyName string
 	req.IPAddresses = cert.IPAddresses
 	req.URIs = cert.URIs
 
-	entry, err := b.storage.Get(context.Background(), venafiPolicyPath+policyName+"/policy")
-	if err != nil {
-		return false, err
-	}
-	if entry == nil {
-		return false, fmt.Errorf("policy data is nil. You need configure Venafi policy to proceed")
-	}
-
-	var zone roleEntry
-
-	if err := entry.DecodeJSON(&zone); err != nil {
-		log.Printf("%s error reading Venafi policy configuration: %s", logPrefixVenafiPolicyEnforcement, err)
-		return false, err
-	}
-	err = checkCSRAgainstZoneEntry(false, &req, zone)
+	err := role.checkCSR(false, &req)
 	if err != nil {
 		return false, nil
 	}
