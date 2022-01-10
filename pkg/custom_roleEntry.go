@@ -468,15 +468,6 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 }
 
 func (pkiRoleEntry *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage, roleName string, policyName string) (msg string) {
-	//	Read previous role parameters
-	//pkiRoleEntry, err := b.getPKIRoleEntry(ctx, storage, roleName)
-	//if err != nil {
-	//	return fmt.Sprintf("%s", err)
-	//}
-
-	if pkiRoleEntry == nil {
-		return fmt.Sprintf("PKI role %s is empty or does not exist", roleName)
-	}
 
 	entry, err := storage.Get(ctx, venafiPolicyPath+policyName)
 	if err != nil {
