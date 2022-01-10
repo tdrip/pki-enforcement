@@ -236,12 +236,3 @@ func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Sto
 	}
 	return
 }
-
-func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, roleName string) (entry *roleEntry, err error) {
-	//Update role since it's settings may be changed
-	entry, err = b.getRole(ctx, storage, roleName)
-	if err != nil {
-		return entry, fmt.Errorf("Error getting role %v: %s\n", roleName, err)
-	}
-	return entry, nil
-}
