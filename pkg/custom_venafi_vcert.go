@@ -12,18 +12,24 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, roleName string) (endpoint.Connector, error) {
+func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, configname string, roleName string) (endpoint.Connector, string, error) {
 
-	secret, zone, err := b.getconfig(ctx, s, roleName)
+	secret, zone, err := b.getconfig(ctx, s, configname, roleName)
 	if err != nil {
-		return nil, err
+		return nil, zone, err
 	}
 
-	return secret.getConnection(zone)
+	connector, err := secret.getConnection(zone)
+	return connector, zone, err
 }
 
-func (b *backend) getconfig(ctx context.Context, s *logical.Storage, roleName string) (*venafiSecretEntry, string, error) {
-	config, err := b.getConfigWithSecret(ctx, s, "")
+func (b *backend) getconfig(ctx context.Context, s *logical.Storage, configname string, roleName string) (*venafiSecretEntry, string, error) {
+
+	if len(roleName) == 0 {
+		return nil, "", fmt.Errorf("Lookup of zone failed as role name is missing")
+	}
+
+	config, err := b.getConfigWithSecret(ctx, s, configname)
 	if err != nil {
 		return nil, "", err
 	}
@@ -52,12 +58,12 @@ func (b *backend) getconfig(ctx context.Context, s *logical.Storage, roleName st
 	return secret, zone, nil
 }
 
-func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, roleName string) (*vcert.Config, error) {
-	secret, zone, err := b.getconfig(ctx, s, roleName)
+func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, configname string, roleName string) (*vcert.Config, error) {
+	secret, zone, err := b.getconfig(ctx, s, configname, roleName)
 	if err != nil {
 		return nil, err
 	}
-	return secret.getConfig(zone, true)
+	return secret.getVCertConfig(zone, true)
 }
 
 func pp(a interface{}) string {
@@ -82,7 +88,7 @@ type venafiSecretEntry struct {
 }
 
 func (c venafiSecretEntry) getConnection(zone string) (endpoint.Connector, error) {
-	cfg, err := c.getConfig(zone, false)
+	cfg, err := c.getVCertConfig(zone, false)
 	if err == nil {
 		client, err := vcert.NewClient(cfg)
 		if err != nil {
@@ -96,7 +102,7 @@ func (c venafiSecretEntry) getConnection(zone string) (endpoint.Connector, error
 	}
 }
 
-func (c venafiSecretEntry) getConfig(zone string, includeRefreshToken bool) (*vcert.Config, error) {
+func (c venafiSecretEntry) getVCertConfig(zone string, includeRefreshToken bool) (*vcert.Config, error) {
 	if zone == "" {
 		zone = c.Zone
 	}

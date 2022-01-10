@@ -24,10 +24,10 @@ const logPrefixVenafiImport = "VENAFI_IMPORT: "
 
 //Jobs tructure for import queue worker
 type Job struct {
-	id         int
-	entry      string
-	roleName   string
-	policyName string
+	id       int
+	entry    string
+	roleName string
+	//policyName string
 	importPath string
 	ctx        context.Context
 	//req        *logical.Request
@@ -142,11 +142,11 @@ func (b *backend) fillImportQueueTask(roleName string, policyName string, noOfWo
 	for i, entry := range entries {
 		log.Printf("%s Allocating job for entry %s", logPrefixVenafiImport, entry)
 		job := Job{
-			id:                     i,
-			entry:                  entry,
-			importPath:             importPath,
-			roleName:               roleName,
-			policyName:             policyName,
+			id:         i,
+			entry:      entry,
+			importPath: importPath,
+			roleName:   roleName,
+			//policyName:             policyName,
 			storage:                &storage,
 			ctx:                    ctx,
 			importOnlyNonCompliant: importOnlyNonCompliant,
@@ -179,7 +179,7 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 		roleName := roles[i]
 
 		//Update role since it's settings may be changed
-		role, err := b.getRole(ctx, b.storage, roleName)
+		role, err := b.getPKIRoleEntry(ctx, b.storage, roleName)
 		if err != nil {
 			log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
 			continue
@@ -227,21 +227,23 @@ func (b *backend) processImportToTPP(job Job) string {
 
 	msg := fmt.Sprintf("Job id: %v ###", job.id)
 	importPath := job.importPath
-	log.Printf("%s %s Trying to import certificate with SN %s", logPrefixVenafiImport, msg, job.entry)
-	cl, err := b.RoleBasedClientVenafi(job.ctx, job.storage, job.roleName)
-	if err != nil {
-		return fmt.Sprintf("%s Could not create venafi client: %s", msg, err)
-	}
 
-	role, err := b.getRole(job.ctx, *job.storage, job.roleName)
+	log.Printf("%s %s Trying to import certificate with SN %s", logPrefixVenafiImport, msg, job.entry)
+
+	role, err := b.getPKIRoleEntry(job.ctx, *job.storage, job.roleName)
 	if err != nil {
 		log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
 		return err.Error()
 	}
 
 	if role == nil {
-		log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
+		log.Printf("%s Unknown role (%s) %v\n", logPrefixVenafiImport, job.roleName, role)
 		return err.Error()
+	}
+
+	cl, _, err := b.RoleBasedClientVenafi(job.ctx, job.storage, role.CustomEnforcementConfig, job.roleName)
+	if err != nil {
+		return fmt.Sprintf("%s Could not create venafi client: %s", msg, err)
 	}
 
 	certEntry, err := (*job.storage).Get(job.ctx, importPath+job.entry)
@@ -305,7 +307,7 @@ func (b *backend) processImportToTPP(job Job) string {
 			code := getStatusCode(msg)
 			if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-				cfg, err := b.getRoleBasedConfig(job.ctx, job.storage, job.policyName)
+				cfg, err := b.getRoleBasedConfig(job.ctx, job.storage, role.CustomEnforcementConfig, job.roleName)
 
 				if err != nil {
 					return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
@@ -314,14 +316,14 @@ func (b *backend) processImportToTPP(job Job) string {
 				if cfg.Credentials.RefreshToken != "" {
 					msg := fmt.Sprintf("Token will be updated by the Job with id: %v ###", job.id)
 					b.Logger().Debug(msg)
-					err = synchronizedUpdateAccessToken(cfg, b, job.ctx, job.storage, job.policyName)
+					err = synchronizedUpdateAccessToken(cfg, b, job.ctx, job.storage, job.roleName)
 
 					if err != nil {
 						return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
 					}
 
 					//everything went fine so get the new client with the new refreshed access token
-					cl, err := b.RoleBasedClientVenafi(job.ctx, job.storage, job.policyName)
+					cl, _, err := b.RoleBasedClientVenafi(job.ctx, job.storage, role.CustomEnforcementConfig, job.roleName)
 					if err != nil {
 						return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
 					}

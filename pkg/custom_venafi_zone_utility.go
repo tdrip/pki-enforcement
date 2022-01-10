@@ -10,10 +10,10 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, zone string, role string) (policy *endpoint.Policy, err error) {
+func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storage, EnforcementConfig string, role string) (policy *endpoint.Policy, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixEnforcement)
 
-	cl, err := b.RoleBasedClientVenafi(ctx, storage, role)
+	cl, _, err := b.RoleBasedClientVenafi(ctx, storage, EnforcementConfig, role)
 	if err != nil {
 		return
 	}
@@ -31,21 +31,21 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-			cfg, err := b.getRoleBasedConfig(ctx, storage, role)
+			cfg, err := b.getRoleBasedConfig(ctx, storage, EnforcementConfig, role)
 
 			if err != nil {
 				return nil, err
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
-				err = synchronizedUpdateAccessToken(cfg, b, ctx, storage, zone)
+				err = synchronizedUpdateAccessToken(cfg, b, ctx, storage, EnforcementConfig)
 
 				if err != nil {
 					return nil, err
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, err := b.RoleBasedClientVenafi(ctx, storage, role)
+				cl, _, err := b.RoleBasedClientVenafi(ctx, storage, EnforcementConfig, role)
 				if err != nil {
 					return nil, err
 				}
@@ -75,10 +75,10 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 	return
 }
 
-func (b *backend) updateRoleEntryFromVenafi(ctx context.Context, storage logical.Storage, role *roleEntry) (zoneentry *roleEntry, err error) {
+func (b *backend) updateRoleEntryFromVenafi(ctx context.Context, storage logical.Storage, role *roleEntry) (*roleEntry, error) {
 
 	// grab the zone from Venafi
-	zone, err := b.getZoneFromVenafi(ctx, &storage, "", role.Name)
+	zone, err := b.getZoneFromVenafi(ctx, &storage, role.CustomEnforcementConfig, role.Name)
 	if err != nil {
 		return nil, err
 	}

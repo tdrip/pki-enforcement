@@ -162,14 +162,14 @@ func replacePKIValue(original *[]string, zone []string) {
 	}
 }
 
-func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Storage, enforcementConfig string, syncZone string) (entry roleEntry, err error) {
+func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Storage, enforcementConfig string, roleName string) (entry roleEntry, err error) {
 	//Get role params from TPP\Cloud
-	cl, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig)
+	cl, zonepath, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig, roleName)
 	if err != nil {
 		return entry, fmt.Errorf("could not create venafi client: %s", err)
 	}
 
-	cl.SetZone(syncZone)
+	cl.SetZone(zonepath)
 	zone, err := cl.ReadZoneConfiguration()
 	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
 		msg := err.Error()
@@ -181,7 +181,7 @@ func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Sto
 		//and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getRoleBasedConfig(ctx, &storage, enforcementConfig)
+			cfg, err := b.getRoleBasedConfig(ctx, &storage, enforcementConfig, roleName)
 
 			if err != nil {
 				return entry, err
@@ -195,12 +195,12 @@ func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Sto
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig)
+				cl, zonepath, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig, roleName)
 				if err != nil {
 					return entry, err
 				}
 
-				b.Logger().Debug("Reading policy configuration again")
+				b.Logger().Debug("Reading policy configuration again %s", zonepath)
 
 				zone, err = cl.ReadZoneConfiguration()
 				if err != nil {

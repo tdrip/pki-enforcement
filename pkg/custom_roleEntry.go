@@ -74,6 +74,8 @@ type roleEntry struct {
 	AllowExpirationPastCA bool
 	Name                  string `json:"name"`
 
+	CustomEnforcementConfig string `json:"custom_econfig"`
+
 	// Venafi have this concept of zone/policy which is interchangeable
 	// Vault has policy
 	// we shall stick to zone so that it is clear
@@ -142,6 +144,7 @@ func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *f
 		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
 		NotBeforeDuration:             time.Duration(data.Get("not_before_duration").(int)) * time.Second,
 		Name:                          name,
+		CustomEnforcementConfig:       data.Get("custom_econfig").(string),
 	}
 
 	// we do not have a specific zone so we can calculate it
@@ -482,7 +485,7 @@ func (role *roleEntry) store(ctx context.Context, storage logical.Storage) error
 
 func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage) (string, error) {
 
-	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, "", role.Zone)
+	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, role.CustomEnforcementConfig, role.Zone)
 	if err != nil {
 		return fmt.Sprintf("%s", err), err
 	}
