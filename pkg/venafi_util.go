@@ -248,14 +248,14 @@ func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 	return tppConnector, nil
 }
 
-func synchronizedUpdateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, storage *logical.Storage, policyConfigName string) error {
+func synchronizedUpdateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, storage *logical.Storage, enforcementConfigName string) error {
 	b.mux.Lock()
-	err := updateAccessToken(cfg, b, ctx, storage, policyConfigName)
+	err := updateAccessToken(cfg, b, ctx, storage, enforcementConfigName)
 	b.mux.Unlock()
 	return err
 }
 
-func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, storage *logical.Storage, policyConfigName string) error {
+func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, storage *logical.Storage, enforcementConfigName string) error {
 	tppConnector, _ := getTppConnector(cfg)
 
 	httpClient, err := getHTTPClient(cfg.ConnectionTrust)
@@ -277,7 +277,7 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, stora
 
 	if resp.Access_token != "" && resp.Refresh_token != "" {
 
-		err := storeAccessData(b, ctx, storage, policyConfigName, resp)
+		err := storeAccessData(b, ctx, storage, enforcementConfigName, resp)
 		if err != nil {
 			return err
 		}
@@ -287,8 +287,8 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, stora
 	return nil
 }
 
-func storeAccessData(b *backend, ctx context.Context, storage *logical.Storage, policyName string, resp tpp.OauthRefreshAccessTokenResponse) error {
-	policy, err := b.getEnforcementConfig(ctx, storage, policyName)
+func storeAccessData(b *backend, ctx context.Context, storage *logical.Storage, enforcementConfigName string, resp tpp.OauthRefreshAccessTokenResponse) error {
+	policy, err := b.getEnforcementConfig(ctx, storage, enforcementConfigName)
 
 	if err != nil {
 		return err
