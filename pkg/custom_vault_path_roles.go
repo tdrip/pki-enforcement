@@ -368,6 +368,12 @@ for "generate_lease".`,
 					Value: 30,
 				},
 			},
+
+			"custom_econfig": {
+				Type:        framework.TypeString,
+				Default:     "",
+				Description: "The name of custom enforcement configuration " + enforcementConfigPath + "[name]. If not provided " + enforcementConfigPath + defaultEnforcementName + " will be used",
+			},
 		},
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
