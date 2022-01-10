@@ -259,7 +259,7 @@ func (b *backend) processImportToTPP(job Job) string {
 		return fmt.Sprintf("%s Could not get certificate from entry %s: %s", msg, importPath+job.entry, err)
 	}
 	if job.importOnlyNonCompliant {
-		valid, err := b.checkCertMatchPolicy(Certificate, role)
+		valid, err := role.checkCertMatchPolicy(Certificate)
 		if err != nil {
 			return fmt.Sprintf("Failed checking certificate compliance with policies: %v", err)
 		}
@@ -356,23 +356,6 @@ func (b *backend) processImportToTPP(job Job) string {
 	b.deleteCertFromQueue(job)
 	return pp(importResp)
 
-}
-
-func (b *backend) checkCertMatchPolicy(cert *x509.Certificate, role *roleEntry) (bool, error) {
-	var req x509.CertificateRequest
-	req.Subject = cert.Subject
-	req.Extensions = cert.Extensions
-	req.PublicKey = cert.PublicKey
-	req.EmailAddresses = cert.EmailAddresses
-	req.DNSNames = cert.DNSNames
-	req.IPAddresses = cert.IPAddresses
-	req.URIs = cert.URIs
-
-	err := role.checkCSR(false, &req)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
 }
 
 func (b *backend) deleteCertFromQueue(job Job) {
