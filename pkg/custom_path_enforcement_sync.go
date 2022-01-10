@@ -149,6 +149,7 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 			return err
 		}
 	}
+
 	return err
 }
 

@@ -480,7 +480,7 @@ func (role *roleEntry) store(ctx context.Context, storage logical.Storage) error
 	return nil
 }
 
-func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage) (msg string, error) {
+func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage) (string, error) {
 
 	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, "", role.Zone)
 	if err != nil {
