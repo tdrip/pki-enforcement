@@ -20,6 +20,8 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+const logPrefixVenafiImport = "VENAFI_IMPORT: "
+
 //Jobs tructure for import queue worker
 type Job struct {
 	id         int

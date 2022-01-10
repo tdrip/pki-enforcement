@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const logPrefixVenafiScheduler = "VENAFI_SCHEDULER: "
+
 type backgroundTask struct {
 	name           string
 	f              func()
