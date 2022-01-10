@@ -149,7 +149,7 @@ func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *f
 	}
 
 	// we do not have a specific zone so we can calculate it
-	updatedEntry, err := entry.updateRoleEntryFromVenafi(b, ctx, req.Storage)
+	updatedEntry, err := entry.updateFromVenafi(b, ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +569,7 @@ func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, 
 	return entry, nil
 }
 
-func (role *roleEntry) updateRoleEntryFromVenafi(b *backend, ctx context.Context, storage logical.Storage) (*roleEntry, error) {
+func (role *roleEntry) updateFromVenafi(b *backend, ctx context.Context, storage logical.Storage) (*roleEntry, error) {
 
 	// grab the zone from Venafi
 	zone, err := role.getZoneFromVenafi(b, ctx, &storage)
