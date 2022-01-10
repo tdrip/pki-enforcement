@@ -75,10 +75,10 @@ func (b *backend) getZoneFromVenafi(ctx context.Context, storage *logical.Storag
 	return
 }
 
-func (b *backend) updateRoleEntryFromVenafi(ctx context.Context, storage *logical.Storage, role *roleEntry) (zoneentry *roleEntry, err error) {
+func (b *backend) updateRoleEntryFromVenafi(ctx context.Context, storage logical.Storage, role *roleEntry) (zoneentry *roleEntry, err error) {
 
 	// grab the zone from Venafi
-	zone, err := b.getZoneFromVenafi(ctx, storage, "", role.Name)
+	zone, err := b.getZoneFromVenafi(ctx, &storage, "", role.Name)
 	if err != nil {
 		return nil, err
 	}
