@@ -288,7 +288,7 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, stora
 }
 
 func storeAccessData(b *backend, ctx context.Context, storage *logical.Storage, policyName string, resp tpp.OauthRefreshAccessTokenResponse) error {
-	policy, err := b.getVenafiZoneConfig(ctx, storage, policyName)
+	policy, err := b.getEnforcementConfig(ctx, storage, policyName)
 
 	if err != nil {
 		return err

@@ -17,8 +17,8 @@ const (
 	defaultVenafiPolicyName = "default"
 
 	// new path
-	enforcementConfigPath = "enforcement-config/"
-	defaultVenafiZoneName = "default"
+	enforcementConfigPath  = "enforcement-config/"
+	defaultEnforcementName = "default"
 )
 
 type enforcementConfigEntry struct {
@@ -32,7 +32,7 @@ type enforcementConfigEntry struct {
 	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
 }
 
-func pathVenafiZoneConfig(b *backend) *framework.Path {
+func pathEnforcementConfig(b *backend) *framework.Path {
 	ret := &framework.Path{
 		Pattern: enforcementConfigPath + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
@@ -82,15 +82,15 @@ Example for Venafi Cloud: Default`,
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback: b.pathUpdateVenafiZoneConfig,
+				Callback: b.pathUpdateEnforcementConfig,
 				Summary:  "Configure the settings of a Venafi policy",
 			},
 			logical.ReadOperation: &framework.PathOperation{
-				Callback: b.pathReadVenafiZoneConfig,
+				Callback: b.pathReadEnforcementConfig,
 				Summary:  "Return the Venafi zone config specified in path",
 			},
 			logical.DeleteOperation: &framework.PathOperation{
-				Callback: b.pathDeleteVenafiZoneConfig,
+				Callback: b.pathDeleteEnforcementConfig,
 				Summary:  "Removes the Venafi policy specified in path",
 			},
 		},
@@ -106,7 +106,7 @@ func pathVenafiPolicyList(b *backend) *framework.Path {
 		Pattern: enforcementConfigPath,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ListOperation: &framework.PathOperation{
-				Callback: b.pathListVenafiZoneConfig,
+				Callback: b.pathListEnforcementConfig,
 			},
 		},
 
@@ -116,7 +116,7 @@ func pathVenafiPolicyList(b *backend) *framework.Path {
 	return ret
 }
 
-func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, err error) {
+func (b *backend) pathUpdateEnforcementConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, err error) {
 	name := data.Get("name").(string)
 
 	log.Printf("%s Write policy endpoint configuration into storage", logPrefixVenafiPolicyEnforcement)
@@ -159,7 +159,7 @@ func (b *backend) pathUpdateVenafiZoneConfig(ctx context.Context, req *logical.R
 	}, nil
 }
 
-func (b *backend) pathReadVenafiZoneConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
+func (b *backend) pathReadEnforcementConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
 	name := data.Get("name").(string)
 	log.Printf("%s Trying to read policy for config %s", logPrefixVenafiPolicyEnforcement, name)
 
@@ -199,7 +199,7 @@ func (b *backend) pathReadVenafiZoneConfig(ctx context.Context, req *logical.Req
 	}, nil
 }
 
-func (b *backend) pathDeleteVenafiZoneConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathDeleteEnforcementConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	var err error
 	name := data.Get("name").(string)
 	rawEntry, err := req.Storage.List(ctx, enforcementConfigPath+name+"/")
@@ -223,7 +223,7 @@ func (b *backend) pathDeleteVenafiZoneConfig(ctx context.Context, req *logical.R
 	return nil, nil
 }
 
-func (b *backend) pathListVenafiZoneConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathListEnforcementConfig(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	zoneconfigs, err := req.Storage.List(ctx, enforcementConfigPath)
 	var entries []string
 	if err != nil {
@@ -239,7 +239,7 @@ func (b *backend) pathListVenafiZoneConfig(ctx context.Context, req *logical.Req
 	return logical.ListResponse(entries), nil
 }
 
-func (b *backend) getVenafiZoneConfig(ctx context.Context, s *logical.Storage, configname string) (*enforcementConfigEntry, error) {
+func (b *backend) getEnforcementConfig(ctx context.Context, s *logical.Storage, configname string) (*enforcementConfigEntry, error) {
 	entry, err := (*s).Get(ctx, enforcementConfigPath+configname)
 	if err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func (b *backend) getVenafiZoneConfig(ctx context.Context, s *logical.Storage, c
 }
 
 func (b *backend) getConfigWithSecret(ctx context.Context, s *logical.Storage, configname string) (*enforcementConfigEntry, error) {
-	config, err := b.getVenafiZoneConfig(ctx, s, configname)
+	config, err := b.getEnforcementConfig(ctx, s, configname)
 	if err != nil {
 		return nil, err
 	}
