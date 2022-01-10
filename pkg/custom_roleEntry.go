@@ -149,7 +149,7 @@ func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *f
 	}
 
 	// we do not have a specific zone so we can calculate it
-	updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, req.Storage, entry)
+	updatedEntry, err := entry.updateRoleEntryFromVenafi(b, ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -567,4 +567,35 @@ func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, 
 		return entry, fmt.Errorf("Error getting role %v: %s\n", roleName, err)
 	}
 	return entry, nil
+}
+
+func (role *roleEntry) updateRoleEntryFromVenafi(b *backend, ctx context.Context, storage logical.Storage) (*roleEntry, error) {
+
+	// grab the zone from Venafi
+	zone, err := role.getZoneFromVenafi(b, ctx, &storage)
+	if err != nil {
+		return nil, err
+	}
+
+	// Venafi have this concept of zone/policy which is interchangeable
+	// Vault has policy
+	// we shall stick to zone so that it is clear
+	// this is a venafi zone (path in a venafi platform)
+
+	role.SubjectCNRegexes = zone.SubjectCNRegexes
+	role.SubjectORegexes = zone.SubjectORegexes
+	role.SubjectOURegexes = zone.SubjectOURegexes
+	role.SubjectSTRegexes = zone.SubjectSTRegexes
+	role.SubjectLRegexes = zone.SubjectLRegexes
+	role.SubjectCRegexes = zone.SubjectCRegexes
+	role.AllowedKeyConfigurations = zone.AllowedKeyConfigurations
+	role.DnsSanRegExs = zone.DnsSanRegExs
+	role.IpSanRegExs = zone.IpSanRegExs
+	role.EmailSanRegExs = zone.EmailSanRegExs
+	role.UriSanRegExs = zone.UriSanRegExs
+	role.UpnSanRegExs = zone.UpnSanRegExs
+	role.AllowWildcards = zone.AllowWildcards
+	role.AllowKeyReuse = zone.AllowKeyReuse
+
+	return role, nil
 }

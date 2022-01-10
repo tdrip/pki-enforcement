@@ -132,7 +132,7 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 		//pkiRoleEntry.synchronizeRoleDefaults(b, ctx, b.storage, roleName)
 
 		// we do not have a specific zone so we can calculate it
-		updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, b.storage, pkiRoleEntry)
+		updatedEntry, err := pkiRoleEntry.updateRoleEntryFromVenafi(b, ctx, b.storage)
 		if err != nil {
 			return err
 		}
