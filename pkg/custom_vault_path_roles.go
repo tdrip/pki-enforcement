@@ -598,12 +598,8 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		}
 	}
 
-	// Store it
-	jsonEntry, err := logical.StorageEntryJSON("role/"+entry.Name, entry)
+	err = entry.store(ctx, req.Storage)
 	if err != nil {
-		return nil, err
-	}
-	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
 		return nil, err
 	}
 
