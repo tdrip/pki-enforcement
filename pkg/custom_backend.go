@@ -57,7 +57,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathListRoles(&b),
 
 			// Enforcement Roles
-			pathEnforceRoles(&b),
+			pathRoles(&b),
 
 			// Standard PKI paths
 			pathGenerateRoot(&b),

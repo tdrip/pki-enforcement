@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/certutil"
@@ -27,7 +26,7 @@ func pathListRoles(b *backend) *framework.Path {
 	}
 }
 
-func pathEnforceRoles(b *backend) *framework.Path {
+func pathRoles(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "roles/" + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
@@ -541,58 +540,12 @@ func (b *backend) pathRoleList(ctx context.Context, req *logical.Request, d *fra
 
 func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 
-	// name of the role
 	var err error
-	name := data.Get("name").(string)
 
-	entry := &roleEntry{
-		MaxTTL:                        time.Duration(data.Get("max_ttl").(int)) * time.Second,
-		TTL:                           time.Duration(data.Get("ttl").(int)) * time.Second,
-		AllowLocalhost:                data.Get("allow_localhost").(bool),
-		AllowedDomains:                data.Get("allowed_domains").([]string),
-		AllowedDomainsTemplate:        data.Get("allowed_domains_template").(bool),
-		AllowBareDomains:              data.Get("allow_bare_domains").(bool),
-		AllowSubdomains:               data.Get("allow_subdomains").(bool),
-		AllowGlobDomains:              data.Get("allow_glob_domains").(bool),
-		AllowAnyName:                  data.Get("allow_any_name").(bool),
-		EnforceHostnames:              data.Get("enforce_hostnames").(bool),
-		AllowIPSANs:                   data.Get("allow_ip_sans").(bool),
-		AllowedURISANs:                data.Get("allowed_uri_sans").([]string),
-		ServerFlag:                    data.Get("server_flag").(bool),
-		ClientFlag:                    data.Get("client_flag").(bool),
-		CodeSigningFlag:               data.Get("code_signing_flag").(bool),
-		EmailProtectionFlag:           data.Get("email_protection_flag").(bool),
-		KeyType:                       data.Get("key_type").(string),
-		KeyBits:                       data.Get("key_bits").(int),
-		UseCSRCommonName:              data.Get("use_csr_common_name").(bool),
-		UseCSRSANs:                    data.Get("use_csr_sans").(bool),
-		KeyUsage:                      data.Get("key_usage").([]string),
-		ExtKeyUsage:                   data.Get("ext_key_usage").([]string),
-		ExtKeyUsageOIDs:               data.Get("ext_key_usage_oids").([]string),
-		OU:                            data.Get("ou").([]string),
-		Organization:                  data.Get("organization").([]string),
-		Country:                       data.Get("country").([]string),
-		Locality:                      data.Get("locality").([]string),
-		Province:                      data.Get("province").([]string),
-		StreetAddress:                 data.Get("street_address").([]string),
-		PostalCode:                    data.Get("postal_code").([]string),
-		GenerateLease:                 new(bool),
-		NoStore:                       data.Get("no_store").(bool),
-		RequireCN:                     data.Get("require_cn").(bool),
-		AllowedSerialNumbers:          data.Get("allowed_serial_numbers").([]string),
-		PolicyIdentifiers:             data.Get("policy_identifiers").([]string),
-		BasicConstraintsValidForNonCA: data.Get("basic_constraints_valid_for_non_ca").(bool),
-		NotBeforeDuration:             time.Duration(data.Get("not_before_duration").(int)) * time.Second,
-		Name:                          name,
-	}
-
-	// we do not have a specific zone so we can calculate it
-	updatedEntry, err := b.updateRoleEntryFromVenafi(ctx, req.Storage, entry)
+	entry, err := NewRoleEntry(b, ctx, req, data)
 	if err != nil {
-		return logical.ErrorResponse("updateRoleEntryFromVenafi failed with: %v", err), err
+		return logical.ErrorResponse("New Role failed with: %v", err), err
 	}
-
-	entry = updatedEntry
 
 	allowedOtherSANs := data.Get("allowed_other_sans").([]string)
 	switch {
@@ -646,7 +599,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	}
 
 	// Store it
-	jsonEntry, err := logical.StorageEntryJSON("role/"+name, entry)
+	jsonEntry, err := logical.StorageEntryJSON("role/"+entry.Name, entry)
 	if err != nil {
 		return nil, err
 	}
