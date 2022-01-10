@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"regexp"
 	"time"
 
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/framework"
 	hconsts "github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -151,88 +149,4 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 	}
 
 	return err
-}
-
-func replacePKIValue(original *[]string, zone []string) {
-	if len(zone) > 0 {
-		if zone[0] != "" {
-			*original = zone
-		}
-
-	}
-}
-
-func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Storage, enforcementConfig string, roleName string) (entry roleEntry, err error) {
-	//Get role params from TPP\Cloud
-	cl, zonepath, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig, roleName)
-	if err != nil {
-		return entry, fmt.Errorf("could not create venafi client: %s", err)
-	}
-
-	cl.SetZone(zonepath)
-	zone, err := cl.ReadZoneConfiguration()
-	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
-		msg := err.Error()
-
-		//catch the scenario when token is expired and deleted.
-		var regex = regexp.MustCompile("(expired|invalid)_token")
-
-		//validate if the error is related to a expired accces token, at this moment the only way can validate this is using the error message
-		//and verify if that message describes errors related to expired access token.
-		code := getStatusCode(msg)
-		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getRoleBasedConfig(ctx, &storage, enforcementConfig, roleName)
-
-			if err != nil {
-				return entry, err
-			}
-
-			if cfg.Credentials.RefreshToken != "" {
-				err = synchronizedUpdateAccessToken(cfg, b, ctx, &storage, enforcementConfig)
-
-				if err != nil {
-					return entry, err
-				}
-
-				//everything went fine so get the new client with the new refreshed access token
-				cl, zonepath, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig, roleName)
-				if err != nil {
-					return entry, err
-				}
-
-				b.Logger().Debug("Reading policy configuration again %s", zonepath)
-
-				zone, err = cl.ReadZoneConfiguration()
-				if err != nil {
-					return entry, err
-				} else {
-					entry = roleEntry{
-						OU:           zone.OrganizationalUnit,
-						Organization: []string{zone.Organization},
-						Country:      []string{zone.Country},
-						Locality:     []string{zone.Locality},
-						Province:     []string{zone.Province},
-					}
-					return entry, nil
-				}
-			} else {
-				err = fmt.Errorf("Tried to get new access token but refresh token is empty")
-				return entry, err
-			}
-
-		} else {
-			return entry, err
-		}
-	}
-	if err != nil {
-		return entry, fmt.Errorf("could not read zone configuration: %s", err)
-	}
-	entry = roleEntry{
-		OU:           zone.OrganizationalUnit,
-		Organization: []string{zone.Organization},
-		Country:      []string{zone.Country},
-		Locality:     []string{zone.Locality},
-		Province:     []string{zone.Province},
-	}
-	return
 }

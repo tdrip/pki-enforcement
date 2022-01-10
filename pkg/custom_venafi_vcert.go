@@ -12,17 +12,6 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage, configname string, roleName string) (endpoint.Connector, string, error) {
-
-	secret, zone, err := b.getconfig(ctx, s, configname, roleName)
-	if err != nil {
-		return nil, zone, err
-	}
-
-	connector, err := secret.getConnection(zone)
-	return connector, zone, err
-}
-
 func (b *backend) getconfig(ctx context.Context, s *logical.Storage, configname string, roleName string) (*venafiSecretEntry, string, error) {
 
 	if len(roleName) == 0 {

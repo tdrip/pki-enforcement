@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"time"
 
 	"github.com/Venafi/vcert/v4/pkg/certificate"
@@ -483,37 +484,80 @@ func (role *roleEntry) store(ctx context.Context, storage logical.Storage) error
 	return nil
 }
 
-func (role *roleEntry) synchronizeRoleDefaults(b *backend, ctx context.Context, storage logical.Storage) (string, error) {
+func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.Storage) (endpoint.Connector, string, error) {
 
-	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, role.CustomEnforcementConfig, role.Zone)
+	secret, zone, err := b.getconfig(ctx, s, role.CustomEnforcementConfig, role.Name)
 	if err != nil {
-		return fmt.Sprintf("%s", err), err
+		return nil, zone, err
 	}
 
-	//  Replace PKI entry with Venafi policy values
-	replacePKIValue(&role.OU, venafiPolicyEntry.OU)
-	replacePKIValue(&role.Organization, venafiPolicyEntry.Organization)
-	replacePKIValue(&role.Country, venafiPolicyEntry.Country)
-	replacePKIValue(&role.Locality, venafiPolicyEntry.Locality)
-	replacePKIValue(&role.Province, venafiPolicyEntry.Province)
-	replacePKIValue(&role.StreetAddress, venafiPolicyEntry.StreetAddress)
-	replacePKIValue(&role.PostalCode, venafiPolicyEntry.PostalCode)
+	connector, err := secret.getConnection(zone)
+	return connector, zone, err
+}
 
-	//does not have to configure the role to limit domains
-	// because the Venafi policy already constrains that area
-	role.AllowAnyName = true
-	role.AllowedDomains = []string{}
-	role.AllowSubdomains = true
-	//TODO: we need to sync key settings as well. But before it we need to add key type to zone configuration
-	//in vcert SDK
+func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storage *logical.Storage) (policy *endpoint.Policy, err error) {
+	log.Printf("%s Creating Venafi client", logPrefixEnforcement)
 
-	// Put new entry
-	err = role.store(ctx, storage)
+	cl, _, err := role.ClientVenafi(b, ctx, storage)
 	if err != nil {
-		return fmt.Sprintf("%s", err), err
+		return
+	}
+	log.Printf("%s Getting policy from Venafi endpoint", logPrefixEnforcement)
+
+	policy, err = cl.ReadPolicyConfiguration()
+	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
+		msg := err.Error()
+
+		//catch the scenario when token is expired and deleted.
+		var regex = regexp.MustCompile("(expired|invalid)_token")
+
+		//validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
+		//and verify if that message describes errors related to expired access token.
+		code := getStatusCode(msg)
+		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
+
+			cfg, err := b.getRoleBasedConfig(ctx, storage, role.CustomEnforcementConfig, role.Name)
+
+			if err != nil {
+				return nil, err
+			}
+
+			if cfg.Credentials.RefreshToken != "" {
+				err = synchronizedUpdateAccessToken(cfg, b, ctx, storage, role.CustomEnforcementConfig)
+
+				if err != nil {
+					return nil, err
+				}
+
+				//everything went fine so get the new client with the new refreshed access token
+				cl, _, err := role.ClientVenafi(b, ctx, storage)
+				if err != nil {
+					return nil, err
+				}
+
+				b.Logger().Debug("Making certificate request again")
+
+				policy, err = cl.ReadPolicyConfiguration()
+				if err != nil {
+					return nil, err
+				} else {
+					return policy, nil
+				}
+			} else {
+				err = fmt.Errorf("tried to get new access token but refresh token is empty")
+				return nil, err
+			}
+
+		} else {
+			return nil, err
+		}
+	}
+	if policy == nil {
+		err = fmt.Errorf("expected policy but got nil from Venafi endpoint %v", policy)
+		return
 	}
 
-	return fmt.Sprintf("finished synchronizing role %s", role.Name), nil
+	return
 }
 
 func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, roleName string) (entry *roleEntry, err error) {

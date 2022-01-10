@@ -241,7 +241,7 @@ func (b *backend) processImportToTPP(job Job) string {
 		return err.Error()
 	}
 
-	cl, _, err := b.RoleBasedClientVenafi(job.ctx, job.storage, role.CustomEnforcementConfig, job.roleName)
+	cl, _, err := role.ClientVenafi(b, job.ctx, job.storage)
 	if err != nil {
 		return fmt.Sprintf("%s Could not create venafi client: %s", msg, err)
 	}
@@ -323,7 +323,7 @@ func (b *backend) processImportToTPP(job Job) string {
 					}
 
 					//everything went fine so get the new client with the new refreshed access token
-					cl, _, err := b.RoleBasedClientVenafi(job.ctx, job.storage, role.CustomEnforcementConfig, job.roleName)
+					cl, _, err := role.ClientVenafi(b, job.ctx, job.storage)
 					if err != nil {
 						return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
 					}
