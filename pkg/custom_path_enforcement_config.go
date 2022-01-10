@@ -12,9 +12,6 @@ import (
 )
 
 const (
-	// To be removed - left to compile
-	venafiPolicyPath = "venafi-policy/"
-
 	// new path
 	enforcementConfigPath  = "enforcement-config/"
 	defaultEnforcementName = "default"
