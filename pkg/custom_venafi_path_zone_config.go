@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"crypto/x509"
 	"log"
 	"strings"
 
@@ -10,22 +11,25 @@ import (
 )
 
 const (
-
 	// To be removed- left to compile
-	//venafiRolePolicyMapStorage  = "venafi-role-policy-map"
 	venafiPolicyPath        = "venafi-policy/"
 	defaultVenafiPolicyName = "default"
-	//policyFieldEnforcementRoles = "enforcement_roles"
-	//policyFieldDefaultsRoles    = "defaults_roles"
-	policyFieldImportRoles    = "import_roles"
-	policyFieldCreateRole     = "create_role"
-	venafiRolePolicyMapPath   = "show-venafi-role-policy-map"
-	errPolicyMapDoesNotExists = "policy map does not exists"
 
 	// new path
 	venafiZoneConfigPath  = "venafi-zone-config/"
 	defaultVenafiZoneName = "default"
 )
+
+type zoneConfigEntry struct {
+	ExtKeyUsage            []x509.ExtKeyUsage `json:"ext_key_usage"`
+	AutoRefreshInterval    int64              `json:"auto_refresh_interval"`
+	LastPolicyUpdateTime   int64              `json:"last_policy_update_time"`
+	VenafiImportTimeout    int                `json:"import_timeout"`
+	VenafiImportWorkers    int                `json:"import_workers"`
+	VenafiSecret           string             `json:"venafi_secret"`
+	ParentZone             string             `json:"parent_zone"`
+	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
+}
 
 func pathVenafiZoneConfig(b *backend) *framework.Path {
 	ret := &framework.Path{

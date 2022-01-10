@@ -13,17 +13,6 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-type zoneConfigEntry struct {
-	ExtKeyUsage            []x509.ExtKeyUsage `json:"ext_key_usage"`
-	AutoRefreshInterval    int64              `json:"auto_refresh_interval"`
-	LastPolicyUpdateTime   int64              `json:"last_policy_update_time"`
-	VenafiImportTimeout    int                `json:"import_timeout"`
-	VenafiImportWorkers    int                `json:"import_workers"`
-	VenafiSecret           string             `json:"venafi_secret"`
-	ParentZone             string             `json:"parent_zone"`
-	ImportOnlyNonCompliant bool               `json:"import_only_non_compliant"`
-}
-
 func checkAgainstVenafiZone(req *logical.Request, role *roleEntry, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
 
 	if len(role.Zone) == 0 {
