@@ -20,7 +20,6 @@ func (b *backend) RoleBasedClientVenafi(ctx context.Context, s *logical.Storage,
 	}
 
 	return secret.getConnection(zone)
-
 }
 
 func (b *backend) getconfig(ctx context.Context, s *logical.Storage, roleName string) (*venafiSecretEntry, string, error) {
@@ -61,16 +60,6 @@ func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, ro
 	return secret.getConfig(zone, true)
 }
 
-func (b *backend) ClientVenafi(ctx context.Context, s *logical.Storage, roleName string) (endpoint.Connector, error) {
-
-	secret, zone, err := b.getconfig(ctx, s, roleName)
-	if err != nil {
-		return nil, err
-	}
-
-	return secret.getConnection(zone)
-}
-
 func pp(a interface{}) string {
 	b, err := json.MarshalIndent(a, "", "    ")
 	if err != nil {
@@ -105,7 +94,6 @@ func (c venafiSecretEntry) getConnection(zone string) (endpoint.Connector, error
 	} else {
 		return nil, err
 	}
-
 }
 
 func (c venafiSecretEntry) getConfig(zone string, includeRefreshToken bool) (*vcert.Config, error) {
