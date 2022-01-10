@@ -152,6 +152,7 @@ func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *f
 
 	return updatedEntry, nil
 }
+
 func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
 
 	if len(role.Zone) == 0 {
