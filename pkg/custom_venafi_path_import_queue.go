@@ -302,7 +302,7 @@ func (b *backend) processImportToTPP(job Job) string {
 			code := getStatusCode(msg)
 			if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-				cfg, err := b.getConfig(job.ctx, job.storage, job.policyName)
+				cfg, err := b.getRoleBasedConfig(job.ctx, job.storage, job.policyName)
 
 				if err != nil {
 					return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
