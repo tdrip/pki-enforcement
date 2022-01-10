@@ -14,23 +14,24 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
-const venafiSyncPolicyListPath = "venafi-sync-policies"
+const venafiSyncPolicyListPath = "enforcement-sync"
+const logPrefixEnforcementSync = "VENAFI_IMPORT: "
 
-func pathVenafiPolicySync(b *backend) *framework.Path {
+func pathEnforcementSync(b *backend) *framework.Path {
 	ret := &framework.Path{
 		Pattern: venafiSyncPolicyListPath,
 
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation: b.pathReadVenafiPolicySync,
+			logical.ReadOperation: b.pathReadEnforcementSync,
 		},
 	}
 	ret.Fields = addNonCACommonFields(map[string]*framework.FieldSchema{})
 	return ret
 }
 
-func (b *backend) pathReadVenafiPolicySync(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
+func (b *backend) pathReadEnforcementSync(ctx context.Context, req *logical.Request, data *framework.FieldData) (response *logical.Response, retErr error) {
 	//Get role list with role sync param
-	log.Println("starting to read sync  roles")
+	log.Println("starting to read sync roles")
 	roles, err := req.Storage.List(ctx, "role/")
 	if err != nil {
 		return nil, err
@@ -55,45 +56,35 @@ func (b *backend) pathReadVenafiPolicySync(ctx context.Context, req *logical.Req
 			continue
 		}
 
-		policyMap, err := getPolicyRoleMap(ctx, req.Storage)
-		if err != nil {
-			return
-		}
-
-		//Get Venafi policy in entry format
-		if policyMap.Roles[roleName].DefaultsPolicy == "" {
-			continue
-		}
-
 		var entry []string
-		entry = append(entry, fmt.Sprintf("role: %s sync policy: %s", roleName, policyMap.Roles[roleName].DefaultsPolicy))
+		entry = append(entry, fmt.Sprintf("role: %s sync zone: %s", roleName, pkiRoleEntry.Zone))
 		entries = append(entries, entry...)
 
 	}
 	return logical.ListResponse(entries), nil
 }
 
-func (b *backend) syncRoleWithVenafiPolicyRegister(conf *logical.BackendConfig) {
-	log.Printf("%s registering policy sync controller", logPrefixVenafiPolicyEnforcement)
+func (b *backend) syncRoleWithEnforcementRegister(conf *logical.BackendConfig) {
+	log.Printf("%s registering policy sync controller", logPrefixEnforcementSync)
 	b.taskStorage.register("policy-sync-controller", func() {
-		err := b.syncPolicyEnforcementAndRoleDefaults(conf)
+		err := b.syncEnforcementAndRoleDefaults(conf)
 		if err != nil {
-			log.Printf("%s %s", logPrefixVenafiPolicyEnforcement, err)
+			log.Printf("%s %s", logPrefixEnforcementSync, err)
 		}
 	}, 1, time.Second*15)
 }
 
-func (b *backend) syncPolicyEnforcementAndRoleDefaults(conf *logical.BackendConfig) (err error) {
+func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (err error) {
 	replicationState := conf.System.ReplicationState()
 	//Checking if we are on master or on the stanby Vault server
 	isSlave := !(conf.System.LocalMount() || !replicationState.HasState(hconsts.ReplicationPerformanceSecondary)) ||
 		replicationState.HasState(hconsts.ReplicationDRSecondary) ||
 		replicationState.HasState(hconsts.ReplicationPerformanceStandby)
 	if isSlave {
-		log.Printf("%s We're on slave. Sleeping", logPrefixVenafiPolicyEnforcement)
+		log.Printf("%s We're on slave. Sleeping", logPrefixEnforcementSync)
 		return
 	}
-	log.Printf("%s We're on master. Starting to synchronise policy", logPrefixVenafiPolicyEnforcement)
+	log.Printf("%s We're on master. Starting to synchronise policy", logPrefixEnforcementSync)
 
 	ctx := context.Background()
 	//Get policy list for enforcement sync
@@ -109,71 +100,71 @@ func (b *backend) syncPolicyEnforcementAndRoleDefaults(conf *logical.BackendConf
 			policies = append(policies, p)
 		}
 	}
+	/*
+		for _, policyName := range policies {
 
-	for _, policyName := range policies {
+			policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyName)
+			if err != nil {
+				log.Printf("%s Error getting policy config for policy %s: %s", logPrefixEnforcementSync, policyName, err)
+				continue
+			}
 
-		policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyName)
-		if err != nil {
-			log.Printf("%s Error getting policy config for policy %s: %s", logPrefixVenafiPolicyEnforcement, policyName, err)
-			continue
+			if policyConfig == nil {
+				log.Printf("%s Policy config for %s is nil. Skipping", logPrefixEnforcementSync, policyName)
+				continue
+			}
+
+			log.Printf("%s check last policy updated time", logPrefixEnforcementSync)
+			timePassed := time.Now().Unix() - policyConfig.LastPolicyUpdateTime
+
+			//update only if needed
+			//TODO: Make test to check this refresh
+			if (timePassed) < policyConfig.AutoRefreshInterval {
+				continue
+			}
+
+			//Refresh Venafi policy regexes
+			err = b.refreshVenafiPolicyEnforcementContent(b.storage, policyName)
+			if err != nil {
+				log.Printf("%s Error  refreshing venafi policy content: %s", logPrefixEnforcementSync, err)
+				continue
+			}
+			//Refresh roles defaults
+			//Get role list with role sync param
+			rolesList, err := b.getRolesListForVenafiPolicy(ctx, b.storage, policyName)
+			if err != nil {
+				continue
+			}
+
+			if len(rolesList.defaultsRoles) == 0 {
+				log.Printf("%s No roles found for refreshing defaults in policy %s", logPrefixVenafiRoleyDefaults, policyName)
+				continue
+			}
+
+			for _, roleName := range rolesList.defaultsRoles {
+				log.Printf("Synchronizing role %s", roleName)
+				msg := b.synchronizeRoleDefaults(ctx, b.storage, roleName, policyName)
+				log.Printf("%s %s", logPrefixVenafiRoleyDefaults, msg)
+			}
+
+			//policy config's credentials may be got updated so get it from storage again before saving it.
+			policyConfig, _ = b.getVenafiPolicyConfig(ctx, &b.storage, policyName)
+
+			//set new last updated
+			policyConfig.LastPolicyUpdateTime = time.Now().Unix()
+
+			//put new policy entry with updated time value
+			jsonEntry, err := logical.StorageEntryJSON(venafiPolicyPath+policyName, policyConfig)
+			if err != nil {
+				return fmt.Errorf("Error converting policy config into JSON: %s", err)
+
+			}
+			if err := b.storage.Put(ctx, jsonEntry); err != nil {
+				return fmt.Errorf("Error saving policy last update time: %s", err)
+
+			}
 		}
-
-		if policyConfig == nil {
-			log.Printf("%s Policy config for %s is nil. Skipping", logPrefixVenafiPolicyEnforcement, policyName)
-			continue
-		}
-
-		log.Printf("%s check last policy updated time", logPrefixVenafiPolicyEnforcement)
-		timePassed := time.Now().Unix() - policyConfig.LastPolicyUpdateTime
-
-		//update only if needed
-		//TODO: Make test to check this refresh
-		if (timePassed) < policyConfig.AutoRefreshInterval {
-			continue
-		}
-
-		//Refresh Venafi policy regexes
-		err = b.refreshVenafiPolicyEnforcementContent(b.storage, policyName)
-		if err != nil {
-			log.Printf("%s Error  refreshing venafi policy content: %s", logPrefixVenafiPolicyEnforcement, err)
-			continue
-		}
-		//Refresh roles defaults
-		//Get role list with role sync param
-		rolesList, err := b.getRolesListForVenafiPolicy(ctx, b.storage, policyName)
-		if err != nil {
-			continue
-		}
-
-		if len(rolesList.defaultsRoles) == 0 {
-			log.Printf("%s No roles found for refreshing defaults in policy %s", logPrefixVenafiRoleyDefaults, policyName)
-			continue
-		}
-
-		for _, roleName := range rolesList.defaultsRoles {
-			log.Printf("Synchronizing role %s", roleName)
-			msg := b.synchronizeRoleDefaults(ctx, b.storage, roleName, policyName)
-			log.Printf("%s %s", logPrefixVenafiRoleyDefaults, msg)
-		}
-
-		//policy config's credentials may be got updated so get it from storage again before saving it.
-		policyConfig, _ = b.getVenafiPolicyConfig(ctx, &b.storage, policyName)
-
-		//set new last updated
-		policyConfig.LastPolicyUpdateTime = time.Now().Unix()
-
-		//put new policy entry with updated time value
-		jsonEntry, err := logical.StorageEntryJSON(venafiPolicyPath+policyName, policyConfig)
-		if err != nil {
-			return fmt.Errorf("Error converting policy config into JSON: %s", err)
-
-		}
-		if err := b.storage.Put(ctx, jsonEntry); err != nil {
-			return fmt.Errorf("Error saving policy last update time: %s", err)
-
-		}
-	}
-
+	*/
 	return err
 }
 
@@ -188,15 +179,6 @@ func (b *backend) synchronizeRoleDefaults(ctx context.Context, storage logical.S
 		return fmt.Sprintf("PKI role %s is empty or does not exist", roleName)
 	}
 
-	//Get Venafi policy in entry format
-	policyMap, err := getPolicyRoleMap(ctx, storage)
-	if err != nil {
-		return
-	}
-	if policyMap.Roles[roleName].DefaultsPolicy == "" {
-		return fmt.Sprintf("role %s do not have venafi_defaults_policy attribute", roleName)
-	}
-
 	entry, err := storage.Get(ctx, venafiPolicyPath+policyName)
 	if err != nil {
 		return fmt.Sprintf("%s", err)
@@ -206,23 +188,7 @@ func (b *backend) synchronizeRoleDefaults(ctx context.Context, storage logical.S
 		return "entry is nil"
 	}
 
-	var policy venafiPolicyConfigEntry
-	err = entry.DecodeJSON(&policy)
-	if err != nil {
-		return fmt.Sprintf("%s", err)
-	}
-
-	secret, err := b.getVenafiSecret(ctx, &storage, policy.VenafiSecret)
-	if err != nil {
-		return fmt.Sprintf("%s", err)
-	}
-
-	zone := policy.Zone
-	if zone == "" {
-		zone = secret.Zone
-	}
-
-	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, policyName, zone)
+	venafiPolicyEntry, err := b.getVenafiPolicyParams(ctx, storage, policyName, pkiRoleEntry.Zone)
 	if err != nil {
 		return fmt.Sprintf("%s", err)
 	}
@@ -265,9 +231,9 @@ func replacePKIValue(original *[]string, zone []string) {
 	}
 }
 
-func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Storage, policyConfig string, syncZone string) (entry roleEntry, err error) {
+func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Storage, enforcementConfig string, syncZone string) (entry roleEntry, err error) {
 	//Get role params from TPP\Cloud
-	cl, err := b.ClientVenafi(ctx, &storage, policyConfig)
+	cl, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig)
 	if err != nil {
 		return entry, fmt.Errorf("could not create venafi client: %s", err)
 	}
@@ -284,21 +250,21 @@ func (b *backend) getVenafiPolicyParams(ctx context.Context, storage logical.Sto
 		//and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getConfig(ctx, &storage, policyConfig)
+			cfg, err := b.getRoleBasedConfig(ctx, &storage, enforcementConfig)
 
 			if err != nil {
 				return entry, err
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
-				err = synchronizedUpdateAccessToken(cfg, b, ctx, &storage, policyConfig)
+				err = synchronizedUpdateAccessToken(cfg, b, ctx, &storage, enforcementConfig)
 
 				if err != nil {
 					return entry, err
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, err := b.ClientVenafi(ctx, &storage, policyConfig)
+				cl, err := b.RoleBasedClientVenafi(ctx, &storage, enforcementConfig)
 				if err != nil {
 					return entry, err
 				}
