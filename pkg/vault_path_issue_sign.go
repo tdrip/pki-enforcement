@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
@@ -333,6 +334,20 @@ func (b *backend) pathIssueSignCert(ctx context.Context, req *logical.Request, d
 		}
 	}
 
+	// Add certificate toimport queue as we have issued it
+	// All sorts of logging can be done here
+	sn := normalizeSerial(cb.SerialNumber)
+	log.Printf("%s Puting certificate with serial number %s to the Venafi import queue\n", logPrefixVenafiImport, sn)
+
+	err = req.Storage.Put(ctx, &logical.StorageEntry{
+		Key:   "import-queue/" + role.Name + "/" + sn,
+		Value: parsedBundle.CertificateBytes,
+	})
+	if err != nil {
+		log.Printf("Unable to store certificate in import queue: %s", err)
+	}
+
+	log.Printf("Returning sign response")
 	return resp, nil
 }
 
