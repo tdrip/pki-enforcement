@@ -19,6 +19,8 @@ import (
 
 const logPrefixEnforcement = "ENFORCEMENT: "
 
+var venafiPolicyDenyAll = true
+
 type roleEntry struct {
 	LeaseMax                      string        `json:"lease_max"`
 	Lease                         string        `json:"lease"`
@@ -99,8 +101,6 @@ type roleEntry struct {
 	AllowWildcards           bool                               `json:"allow_wildcards"`
 	AllowKeyReuse            bool                               `json:"allow_key_reuse"`
 }
-
-var venafiPolicyDenyAll = true
 
 func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *framework.FieldData) (*roleEntry, error) {
 
