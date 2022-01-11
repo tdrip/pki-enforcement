@@ -825,6 +825,15 @@ func generateCreationBundle(b *backend, data *inputBundle, caSign *certutil.CAIn
 			}
 		}
 
+		//Calling Venafi policy check before performing any checks
+		//log.Println("Checking creation bundle against Venafi policy")
+		err := data.role.ComplianceChecks(data.req, false, csr, cn, []string{}, emailAddresses, dnsNames)
+
+		// i think
+		if err != nil {
+			return nil, errutil.UserError{Err: err.Error()}
+		}
+
 		// Check the CN. This ensures that the CN is checked even if it's
 		// excluded from SANs.
 		if cn != "" {
