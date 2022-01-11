@@ -81,7 +81,7 @@ Also you can use constants from this module (like 1, 5,8) direct or use OIDs (li
 				Description: `The name of the credentials object to be used for authentication`,
 				Required:    true,
 			},
-			"zone": {
+			"parent_zone": {
 				Type: framework.TypeString,
 				Description: `Name of Venafi Platform or Cloud policy. 
 Example for Platform: testPolicy\\vault
@@ -264,6 +264,13 @@ func (b *backend) getEnforcementConfig(ctx context.Context, s *logical.Storage, 
 }
 
 func (b *backend) getConfigWithSecret(ctx context.Context, s *logical.Storage, configname string) (*enforcementConfigEntry, error) {
+
+	// configname was empty so we switch to the default
+	// this will allow us to have a default config and not store the word default on all roles
+	if len(configname) == 0 {
+		configname = defaultEnforcementName
+	}
+
 	config, err := b.getEnforcementConfig(ctx, s, configname)
 	if err != nil {
 		return nil, err

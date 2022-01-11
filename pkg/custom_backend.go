@@ -92,7 +92,8 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathTidy(&b),
 
 			//Custom Paths
-
+			pathVenafiSecrets(&b),
+			pathVenafiSecretsList(&b),
 		},
 
 		Secrets: []*framework.Secret{
