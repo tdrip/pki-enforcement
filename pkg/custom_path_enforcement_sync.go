@@ -87,16 +87,6 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 
 	log.Printf("%s We're on master. Starting to synchronise policy", logPrefixEnforcementSync)
 
-	defaultpolicyname := ""
-	defaultPolicyConfig, err := b.getEnforcementConfig(ctx, &b.storage, defaultpolicyname)
-	if err != nil {
-		log.Printf("%s Error getting policy config for policy %s: %s", logPrefixEnforcementSync, defaultpolicyname, err)
-	}
-
-	if defaultPolicyConfig == nil {
-		log.Printf("%s Policy config for %s is nil. Skipping", logPrefixEnforcementSync, defaultpolicyname)
-	}
-
 	log.Println("starting to read sync roles")
 	roles, err := b.storage.List(ctx, "role/")
 	if err != nil {
@@ -105,6 +95,17 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 
 	if len(roles) == 0 {
 		return fmt.Errorf("No roles found in storage")
+	}
+
+	// grab the default to avoid multiple reads for each role
+	// there might be a few with custom enforcement config however this will be more complex later
+	defaultEnforcementConfig, err := b.getEnforcementConfig(ctx, &b.storage, defaultEnforcementName)
+	if err != nil {
+		log.Printf("%s error getting default enforcement config %s: %s", logPrefixEnforcementSync, defaultEnforcementName, err)
+	}
+
+	if defaultEnforcementConfig == nil {
+		log.Printf("%s default config for %s is nil.", logPrefixEnforcementSync, defaultEnforcementName)
 	}
 
 	for _, roleName := range roles {
@@ -116,14 +117,28 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 		}
 
 		if pkiRoleEntry == nil {
-			return fmt.Errorf("PKI role %s is empty or does not exist", roleName)
+			return fmt.Errorf("%s PKI role %s is empty or does not exist", logPrefixEnforcementSync, roleName)
+		}
+
+		enforcementConfig := defaultEnforcementConfig
+		if len(pkiRoleEntry.CustomEnforcementConfig) > 0 {
+			enforcementConfig, err := b.getEnforcementConfig(ctx, &b.storage, pkiRoleEntry.CustomEnforcementConfig)
+			if err != nil || enforcementConfig == nil {
+				log.Printf("%s exiting due to error getting custom enforcement config (role config:%s) %v: %v.", logPrefixEnforcementSync, pkiRoleEntry.CustomEnforcementConfig, enforcementConfig, err)
+				continue
+			}
+		}
+
+		if enforcementConfig == nil {
+			log.Printf("%s exiting due to missing enforcement config", logPrefixEnforcementSync)
+			continue
 		}
 
 		log.Printf("%s check last policy updated time", logPrefixEnforcementSync)
-		timePassed := time.Now().Unix() - defaultPolicyConfig.LastPolicyUpdateTime
+		timePassed := time.Now().Unix() - enforcementConfig.LastPolicyUpdateTime
 		//update only if needed
 		//TODO: Make test to check this refresh
-		if (timePassed) < defaultPolicyConfig.AutoRefreshInterval {
+		if (timePassed) < enforcementConfig.AutoRefreshInterval {
 			continue
 		}
 
