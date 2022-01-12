@@ -99,7 +99,7 @@ func (b *backend) pathUpdateImportQueue(ctx context.Context, req *logical.Reques
 	return logical.ListResponse(entries), nil
 }
 
-func (b *backend) fillImportQueueTask(roleName string, policyName string, noOfWorkers int, storage logical.Storage, importOnlyNonCompliant bool, conf *logical.BackendConfig) {
+func (b *backend) fillImportQueueTask(roleName string, noOfWorkers int, storage logical.Storage, importOnlyNonCompliant bool, conf *logical.BackendConfig) {
 	ctx := context.Background()
 	jobs := make(chan Job, 100)
 	replicationState := conf.System.ReplicationState()
@@ -142,11 +142,10 @@ func (b *backend) fillImportQueueTask(roleName string, policyName string, noOfWo
 	for i, entry := range entries {
 		log.Printf("%s Allocating job for entry %s", logPrefixVenafiImport, entry)
 		job := Job{
-			id:         i,
-			entry:      entry,
-			importPath: importPath,
-			roleName:   roleName,
-			//policyName:             policyName,
+			id:                     i,
+			entry:                  entry,
+			importPath:             importPath,
+			roleName:               roleName,
 			storage:                &storage,
 			ctx:                    ctx,
 			importOnlyNonCompliant: importOnlyNonCompliant,
@@ -190,21 +189,18 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 			continue
 		}
 
-		// Add Role stuff here
-		/*
-			policyConfig, err := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
-			if err != nil || policyConfig == nil {
-				log.Printf("%s Error getting policy %v: %v\n Exiting.", logPrefixVenafiImport, policyMap.Roles[roleName].ImportPolicy, err)
-				continue
-			}
-			b.taskStorage.register(fillQueuePrefix+roleName, func() {
-				log.Printf("%s run queue filler %s", logPrefixVenafiImport, roleName)
-				//get the policy config here, since this is on the scoupe of this anonymous methods, this will
-				//solve an issue with the ImportOnlyNonCompliant that doesn't hold the correct value.
-				policyConfig, _ := b.getVenafiPolicyConfig(ctx, &b.storage, policyMap.Roles[roleName].ImportPolicy)
-				b.fillImportQueueTask(roleName, policyMap.Roles[roleName].ImportPolicy, policyConfig.VenafiImportWorkers, b.storage, policyConfig.ImportOnlyNonCompliant, conf)
-			}, 1, time.Duration(policyConfig.VenafiImportTimeout)*time.Second)
-		*/
+		enforcementConfig, err := b.getEnforcementConfig(ctx, &b.storage, role.CustomEnforcementConfig)
+		if err != nil || enforcementConfig == nil {
+			log.Printf("%s Error getting enforcement config %v: %v\n Exiting.", logPrefixVenafiImport, enforcementConfig, err)
+			continue
+		}
+		b.taskStorage.register(fillQueuePrefix+roleName, func() {
+			log.Printf("%s run queue filler %s", logPrefixVenafiImport, roleName)
+			//get the policy config here, since this is on the scoupe of this anonymous methods, this will
+			//solve an issue with the ImportOnlyNonCompliant that doesn't hold the correct value.
+			b.fillImportQueueTask(roleName, enforcementConfig.VenafiImportWorkers, b.storage, enforcementConfig.ImportOnlyNonCompliant, conf)
+		}, 1, time.Duration(enforcementConfig.VenafiImportTimeout)*time.Second)
+
 	}
 
 	stringInSlice := func(s string, sl []string) bool {
