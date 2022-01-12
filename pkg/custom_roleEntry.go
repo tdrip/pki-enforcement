@@ -18,6 +18,9 @@ import (
 )
 
 const logPrefixEnforcement = "ENFORCEMENT: "
+const csrerrprefix = "csr compliance failed: "
+const generrprefix = "generation compliance failed: "
+const errprefix = "compliance failed: "
 
 var venafiPolicyDenyAll = true
 
@@ -157,11 +160,11 @@ func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *f
 	return updatedEntry, nil
 }
 
-func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
+func (role *roleEntry) complianceChecks(req *logical.Request, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
 
-	if len(role.Zone) == 0 {
+	if len(role.Zone) == 0 && !isCA {
 		if venafiPolicyDenyAll {
-			return fmt.Errorf("zone data is nil. You need configure Venafi zone to proceed")
+			return fmt.Errorf("%s zone data is nil. You need configure Venafi zone to proceed", csrerrprefix)
 		} else {
 			return nil
 		}
@@ -173,52 +176,53 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 			if len(csr.EmailAddresses) != 0 || len(csr.DNSNames) != 0 || len(csr.IPAddresses) != 0 || len(csr.URIs) != 0 {
 				//workaround for setting SAN if CA have normal domain in CN
 				if csr.DNSNames[0] != csr.Subject.CommonName {
-					return fmt.Errorf("CA doesn't allow any SANs: %v, %v, %v, %v", csr.EmailAddresses, csr.DNSNames, csr.IPAddresses, csr.URIs)
+					return fmt.Errorf("%s CA doesn't allow any SANs: %v, %v, %v, %v", csrerrprefix, csr.EmailAddresses, csr.DNSNames, csr.IPAddresses, csr.URIs)
 				}
 			}
 		} else {
 			if !checkStringByRegexp(csr.Subject.CommonName, role.SubjectCNRegexes) {
-				return fmt.Errorf("common name %s doesn't match regexps: %v", cn, role.SubjectCNRegexes)
+				return fmt.Errorf("%s common name %s doesn't match regexps: %v", csrerrprefix, cn, role.SubjectCNRegexes)
 			}
 			if !checkStringArrByRegexp(csr.EmailAddresses, role.EmailSanRegExs, true) {
-				return fmt.Errorf("email SANs %v do not match regexps: %v", email, role.EmailSanRegExs)
+				return fmt.Errorf("%s email SANs %v do not match regexps: %v", csrerrprefix, email, role.EmailSanRegExs)
 			}
 			if !checkStringArrByRegexp(csr.DNSNames, role.DnsSanRegExs, true) {
-				return fmt.Errorf("DNS SANs %v do not match regexps: %v", csr.DNSNames, role.DnsSanRegExs)
+				return fmt.Errorf("%s DNS SANs %v do not match regexps: %v", csrerrprefix, csr.DNSNames, role.DnsSanRegExs)
 			}
 			ips := make([]string, len(csr.IPAddresses))
 			for i, ip := range csr.IPAddresses {
 				ips[i] = ip.String()
 			}
 			if !checkStringArrByRegexp(ips, role.IpSanRegExs, true) {
-				return fmt.Errorf("IP SANs %v do not match regexps: %v", ipAddresses, role.IpSanRegExs)
+				return fmt.Errorf("%s IP SANs %v do not match regexps: %v", csrerrprefix, ipAddresses, role.IpSanRegExs)
 			}
 			uris := make([]string, len(csr.URIs))
 			for i, uri := range csr.URIs {
 				uris[i] = uri.String()
 			}
 			if !checkStringArrByRegexp(uris, role.UriSanRegExs, true) {
-				return fmt.Errorf("URI SANs %v do not match regexps: %v", uris, role.UriSanRegExs)
+				return fmt.Errorf("%s URI SANs %v do not match regexps: %v", csrerrprefix, uris, role.UriSanRegExs)
 			}
 		}
+
 		if !checkStringArrByRegexp(csr.Subject.Organization, role.SubjectORegexes, false) {
-			return fmt.Errorf("organization %v doesn't match regexps: %v", role.Organization, role.SubjectORegexes)
+			return fmt.Errorf("%s organization %v doesn't match regexps: %v", csrerrprefix, role.Organization, role.SubjectORegexes)
 		}
 
 		if !checkStringArrByRegexp(csr.Subject.OrganizationalUnit, role.SubjectOURegexes, false) {
-			return fmt.Errorf("organizational unit (ou) %v doesn't match regexps: %v", csr.Subject.OrganizationalUnit, role.SubjectOURegexes)
+			return fmt.Errorf("%s organizational unit (ou) %v doesn't match regexps: %v", csrerrprefix, csr.Subject.OrganizationalUnit, role.SubjectOURegexes)
 		}
 
 		if !checkStringArrByRegexp(csr.Subject.Country, role.SubjectCRegexes, false) {
-			return fmt.Errorf("country %v doesn't match regexps: %v", csr.Subject.Country, role.SubjectCRegexes)
+			return fmt.Errorf("%s ountry %v doesn't match regexps: %v", csrerrprefix, csr.Subject.Country, role.SubjectCRegexes)
 		}
 
 		if !checkStringArrByRegexp(csr.Subject.Locality, role.SubjectLRegexes, false) {
-			return fmt.Errorf("city (locality) %v doesn't match regexps: %v", csr.Subject.Locality, role.SubjectLRegexes)
+			return fmt.Errorf("%s city (locality) %v doesn't match regexps: %v", csrerrprefix, csr.Subject.Locality, role.SubjectLRegexes)
 		}
 
 		if !checkStringArrByRegexp(csr.Subject.Province, role.SubjectSTRegexes, false) {
-			return fmt.Errorf("state (province) %v doesn't match regexps: %v", csr.Subject.Province, role.SubjectSTRegexes)
+			return fmt.Errorf("%s state (province) %v doesn't match regexps: %v", csrerrprefix, csr.Subject.Province, role.SubjectSTRegexes)
 		}
 		keyValid := true
 		if csr.PublicKeyAlgorithm == x509.RSA {
@@ -235,7 +239,7 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 			}
 		}
 		if !keyValid {
-			return fmt.Errorf("key type is not allowed by Venafi policies")
+			return fmt.Errorf("%s key type is not allowed by Venafi policies", csrerrprefix)
 		}
 	} else {
 		log.Printf("%s Checking creation bundle against policy %v", logPrefixEnforcement, role)
@@ -244,45 +248,45 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 			if len(email) != 0 || len(sans) != 0 || len(ipAddresses) != 0 {
 				//workaround for setting SAN if CA have normal domain in CN
 				if sans[0] != cn {
-					return fmt.Errorf("CA doesn't allow any SANs: %v, %v, %v", email, sans, ipAddresses)
+					return fmt.Errorf("%s CA doesn't allow any SANs: %v, %v, %v", generrprefix, email, sans, ipAddresses)
 				}
 			}
 		} else {
 			if !checkStringByRegexp(cn, role.SubjectCNRegexes) {
-				return fmt.Errorf("common name %s doesn't match regexps: %v", cn, role.SubjectCNRegexes)
+				return fmt.Errorf("%s common name %s doesn't match regexps: %v", generrprefix, cn, role.SubjectCNRegexes)
 			}
 			if !checkStringArrByRegexp(email, role.EmailSanRegExs, true) {
-				return fmt.Errorf("email SANs %v do not match regexps: %v", email, role.EmailSanRegExs)
+				return fmt.Errorf("%s email SANs %v do not match regexps: %v", generrprefix, email, role.EmailSanRegExs)
 			}
 			if !checkStringArrByRegexp(sans, role.DnsSanRegExs, true) {
-				return fmt.Errorf("DNS SANs %v do not match regexps: %v", sans, role.DnsSanRegExs)
+				return fmt.Errorf("%s DNS SANs %v do not match regexps: %v", generrprefix, sans, role.DnsSanRegExs)
 			}
 			if !checkStringArrByRegexp(ipAddresses, role.IpSanRegExs, true) {
-				return fmt.Errorf("IP SANs %v do not match regexps: %v", ipAddresses, role.IpSanRegExs)
+				return fmt.Errorf("%s IP SANs %v do not match regexps: %v", generrprefix, ipAddresses, role.IpSanRegExs)
 			}
 		}
 
 		if !checkStringArrByRegexp(role.Organization, role.SubjectORegexes, false) {
-			return fmt.Errorf("organization %v doesn't match regexps: %v", role.Organization, role.SubjectORegexes)
+			return fmt.Errorf("%s organization %v doesn't match regexps: %v", generrprefix, role.Organization, role.SubjectORegexes)
 		}
 
 		if !checkStringArrByRegexp(role.OU, role.SubjectOURegexes, false) {
-			return fmt.Errorf("organizational unit (ou) %v doesn't match regexps: %v", role.OU, role.SubjectOURegexes)
+			return fmt.Errorf("%s organizational unit (ou) %v doesn't match regexps: %v", generrprefix, role.OU, role.SubjectOURegexes)
 		}
 
 		if !checkStringArrByRegexp(role.Country, role.SubjectCRegexes, false) {
-			return fmt.Errorf("country %v doesn't match regexps: %v", role.Country, role.SubjectCRegexes)
+			return fmt.Errorf("%s country %v doesn't match regexps: %v", generrprefix, role.Country, role.SubjectCRegexes)
 		}
 
 		if !checkStringArrByRegexp(role.Locality, role.SubjectLRegexes, false) {
-			return fmt.Errorf("city (locality) %v doesn't match regexps: %v", role.Locality, role.SubjectLRegexes)
+			return fmt.Errorf("%s city (locality) %v doesn't match regexps: %v", generrprefix, role.Locality, role.SubjectLRegexes)
 		}
 
 		if !checkStringArrByRegexp(role.Province, role.SubjectSTRegexes, false) {
-			return fmt.Errorf("state (province) %v doesn't match regexps: %v", role.Province, role.SubjectSTRegexes)
+			return fmt.Errorf("%s state (province) %v doesn't match regexps: %v", generrprefix, role.Province, role.SubjectSTRegexes)
 		}
 		if !checkKey(role.KeyType, role.KeyBits, ecdsaCurvesSizesToName(role.KeyBits), role.AllowedKeyConfigurations) {
-			return fmt.Errorf("key type is not allowed by Venafi policies")
+			return fmt.Errorf("%s key type is not allowed by Venafi policies", generrprefix)
 		}
 
 	}
@@ -294,7 +298,7 @@ func (role *roleEntry) ComplianceChecks(req *logical.Request, isCA bool, csr *x5
 	}
 	if !isCA {
 		if !compareEkuList(extKeyUsage, role.VExtKeyUsage) {
-			return fmt.Errorf("different EKU in Venafi zone config and role")
+			return fmt.Errorf("%s different EKU in Venafi zone config and role", errprefix)
 		}
 	}
 

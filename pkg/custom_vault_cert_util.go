@@ -459,7 +459,7 @@ func generateCert(ctx context.Context,
 		return nil, errutil.UserError{Err: "RSA keys < 2048 bits are unsafe and not supported"}
 	}
 
-	data, err := generateCreationBundle(b, input, caSign, nil)
+	data, err := generateCreationBundle(b, input, caSign, nil, isCA)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +505,7 @@ func generateCert(ctx context.Context,
 // N.B.: This is only meant to be used for generating intermediate CAs.
 // It skips some sanity checks.
 func generateIntermediateCSR(b *backend, input *inputBundle) (*certutil.ParsedCSRBundle, error) {
-	creation, err := generateCreationBundle(b, input, nil, nil)
+	creation, err := generateCreationBundle(b, input, nil, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -611,7 +611,7 @@ func signCert(b *backend,
 
 	}
 
-	creation, err := generateCreationBundle(b, data, caSign, csr)
+	creation, err := generateCreationBundle(b, data, caSign, csr, isCA)
 	if err != nil {
 		return nil, err
 	}
@@ -745,7 +745,7 @@ func forEachSAN(extension []byte, callback func(tag int, data []byte) error) err
 // generateCreationBundle is a shared function that reads parameters supplied
 // from the various endpoints and generates a CreationParameters with the
 // parameters that can be used to issue or sign
-func generateCreationBundle(b *backend, data *inputBundle, caSign *certutil.CAInfoBundle, csr *x509.CertificateRequest) (*certutil.CreationBundle, error) {
+func generateCreationBundle(b *backend, data *inputBundle, caSign *certutil.CAInfoBundle, csr *x509.CertificateRequest, isCA bool) (*certutil.CreationBundle, error) {
 	// Read in names -- CN, DNS and email addresses
 	var cn string
 	var ridSerialNumber string
@@ -827,7 +827,7 @@ func generateCreationBundle(b *backend, data *inputBundle, caSign *certutil.CAIn
 
 		//Calling Venafi policy check before performing any checks
 		//log.Println("Checking creation bundle against Venafi policy")
-		err := data.role.ComplianceChecks(data.req, false, csr, cn, []string{}, emailAddresses, dnsNames)
+		err := data.role.complianceChecks(data.req, isCA, csr, cn, []string{}, emailAddresses, dnsNames)
 
 		// i think
 		if err != nil {
