@@ -288,6 +288,9 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, stora
 }
 
 func storeAccessData(b *backend, ctx context.Context, storage *logical.Storage, enforcementConfigName string, resp tpp.OauthRefreshAccessTokenResponse) error {
+	if len(enforcementConfigName) == 0 {
+		enforcementConfigName = defaultEnforcementName
+	}
 	policy, err := b.getEnforcementConfig(ctx, storage, enforcementConfigName)
 
 	if err != nil {
