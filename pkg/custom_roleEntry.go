@@ -509,12 +509,12 @@ func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.
 	return connector, zone, err
 }
 
-func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storage *logical.Storage) (policy *endpoint.Policy, err error) {
+func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storage *logical.Storage) (policy *endpoint.Policy, zone string, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixEnforcement)
 
-	cl, _, err := role.ClientVenafi(b, ctx, storage)
+	cl, zone, err := role.ClientVenafi(b, ctx, storage)
 	if err != nil {
-		return
+		return nil, zone, err
 	}
 	log.Printf("%s Getting policy from Venafi endpoint", logPrefixEnforcement)
 
@@ -533,52 +533,52 @@ func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storag
 			cfg, err := b.getRoleBasedConfig(ctx, storage, role.CustomEnforcementConfig, role.Name)
 
 			if err != nil {
-				return nil, err
+				return nil, zone, err
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
 				err = synchronizedUpdateAccessToken(cfg, b, ctx, storage, role.CustomEnforcementConfig)
 
 				if err != nil {
-					return nil, err
+					return nil, zone, err
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, _, err := role.ClientVenafi(b, ctx, storage)
+				cl, zone, err = role.ClientVenafi(b, ctx, storage)
 				if err != nil {
-					return nil, err
+					return nil, zone, err
 				}
 
 				b.Logger().Debug("Making certificate request again")
 
-				policy, err = cl.ReadPolicyConfiguration()
+				policy, err := cl.ReadPolicyConfiguration()
 				if err != nil {
-					return nil, err
+					return nil, zone, err
 				} else {
-					return policy, nil
+					return policy, zone, nil
 				}
 			} else {
 				err = fmt.Errorf("tried to get new access token but refresh token is empty")
-				return nil, err
+				return nil, zone, err
 			}
 
 		} else {
-			return nil, err
+			return nil, zone, err
 		}
 	}
 	if policy == nil {
 		err = fmt.Errorf("expected policy but got nil from Venafi endpoint %v", policy)
-		return
+		return nil, zone, err
 	}
 
-	return
+	return policy, zone, nil
 }
 
 func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, roleName string) (entry *roleEntry, err error) {
 	//Update role since it's settings may be changed
 	entry, err = b.getRole(ctx, storage, roleName)
 	if err != nil {
-		return entry, fmt.Errorf("Error getting role %v: %s\n", roleName, err)
+		return entry, fmt.Errorf("error getting role %v: %s", roleName, err)
 	}
 	return entry, nil
 }
@@ -586,30 +586,36 @@ func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, 
 func (role *roleEntry) updateFromVenafi(b *backend, ctx context.Context, storage logical.Storage) (*roleEntry, error) {
 
 	// grab the zone from Venafi
-	zone, err := role.getZoneFromVenafi(b, ctx, &storage)
+	zone, path, err := role.getZoneFromVenafi(b, ctx, &storage)
 	if err != nil {
 		return nil, err
 	}
+
+	if zone == nil {
+		return nil, fmt.Errorf("zone/policy was nil from Venafi %s: %v", path, err)
+	}
+	updated := role
 
 	// Venafi have this concept of zone/policy which is interchangeable
 	// Vault has policy
 	// we shall stick to zone so that it is clear
 	// this is a venafi zone (path in a venafi platform)
 
-	role.SubjectCNRegexes = zone.SubjectCNRegexes
-	role.SubjectORegexes = zone.SubjectORegexes
-	role.SubjectOURegexes = zone.SubjectOURegexes
-	role.SubjectSTRegexes = zone.SubjectSTRegexes
-	role.SubjectLRegexes = zone.SubjectLRegexes
-	role.SubjectCRegexes = zone.SubjectCRegexes
-	role.AllowedKeyConfigurations = zone.AllowedKeyConfigurations
-	role.DnsSanRegExs = zone.DnsSanRegExs
-	role.IpSanRegExs = zone.IpSanRegExs
-	role.EmailSanRegExs = zone.EmailSanRegExs
-	role.UriSanRegExs = zone.UriSanRegExs
-	role.UpnSanRegExs = zone.UpnSanRegExs
-	role.AllowWildcards = zone.AllowWildcards
-	role.AllowKeyReuse = zone.AllowKeyReuse
+	updated.SubjectCNRegexes = zone.SubjectCNRegexes
+	updated.SubjectORegexes = zone.SubjectORegexes
+	updated.SubjectOURegexes = zone.SubjectOURegexes
+	updated.SubjectSTRegexes = zone.SubjectSTRegexes
+	updated.SubjectLRegexes = zone.SubjectLRegexes
+	updated.SubjectCRegexes = zone.SubjectCRegexes
+	updated.AllowedKeyConfigurations = zone.AllowedKeyConfigurations
+	updated.DnsSanRegExs = zone.DnsSanRegExs
+	updated.IpSanRegExs = zone.IpSanRegExs
+	updated.EmailSanRegExs = zone.EmailSanRegExs
+	updated.UriSanRegExs = zone.UriSanRegExs
+	updated.UpnSanRegExs = zone.UpnSanRegExs
+	updated.AllowWildcards = zone.AllowWildcards
+	updated.AllowKeyReuse = zone.AllowKeyReuse
+	updated.Zone = path
 
-	return role, nil
+	return updated, nil
 }
