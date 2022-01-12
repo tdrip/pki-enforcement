@@ -174,26 +174,45 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 		return
 	}
 
+	// grab the default to avoid multiple reads for each role
+	// there might be a few with custom enforcement config however this will be more complex later
+	defaultEnforcementConfig, err := b.getEnforcementConfig(ctx, &b.storage, defaultEnforcementName)
+	if err != nil {
+		log.Printf("%s error getting default enforcement config %s: %s", logPrefixVenafiImport, defaultEnforcementName, err)
+	}
+
+	if defaultEnforcementConfig == nil {
+		log.Printf("%s default config for %s is nil.", logPrefixVenafiImport, defaultEnforcementName)
+	}
+
 	for i := range roles {
 		roleName := roles[i]
 
 		//Update role since it's settings may be changed
 		role, err := b.getPKIRoleEntry(ctx, b.storage, roleName)
 		if err != nil {
-			log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
+			log.Printf("%s exiting due to error getting role %v: %s", logPrefixVenafiImport, role, err)
 			continue
 		}
 
 		if role == nil {
-			log.Printf("%s Unknown role %v\n", logPrefixVenafiImport, role)
+			log.Printf("%s exiting due to unknown role %v\n", logPrefixVenafiImport, role)
 			continue
 		}
 
-		enforcementConfig, err := b.getEnforcementConfig(ctx, &b.storage, role.CustomEnforcementConfig)
-		if err != nil || enforcementConfig == nil {
-			log.Printf("%s Error getting enforcement config %v: %v\n Exiting.", logPrefixVenafiImport, enforcementConfig, err)
+		enforcementConfig := defaultEnforcementConfig
+		if len(role.CustomEnforcementConfig) > 0 {
+			enforcementConfig, err := b.getEnforcementConfig(ctx, &b.storage, role.CustomEnforcementConfig)
+			if err != nil || enforcementConfig == nil {
+				log.Printf("%s exiting due to error getting custom enforcement config (role config:%s) %v: %v.", logPrefixVenafiImport, role.CustomEnforcementConfig, enforcementConfig, err)
+				continue
+			}
+		}
+		if enforcementConfig == nil {
+			log.Printf("%s exiting due to missing enforcement config", logPrefixVenafiImport)
 			continue
 		}
+
 		b.taskStorage.register(fillQueuePrefix+roleName, func() {
 			log.Printf("%s run queue filler %s", logPrefixVenafiImport, roleName)
 			//get the policy config here, since this is on the scoupe of this anonymous methods, this will
