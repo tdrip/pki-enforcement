@@ -162,6 +162,16 @@ func NewRoleEntry(b *backend, ctx context.Context, req *logical.Request, data *f
 
 func (role *roleEntry) complianceChecks(req *logical.Request, isCA bool, csr *x509.CertificateRequest, cn string, ipAddresses, email, sans []string) error {
 
+	// this is a work around
+	// so the CA doesnt have a policy to check against as it doesn't have a role mapped
+	// this could be improved in the future maybe with a configuration for the CA
+	// however vault CA setup should be done via vault admin and controlled in such a manner
+	if isCA {
+		return nil
+	}
+
+	// the CA certificate will not be checked against Venafi today
+	// this could be the case in the future however to setup a CA
 	if len(role.Zone) == 0 && !isCA {
 		if venafiPolicyDenyAll {
 			return fmt.Errorf("%s zone data is nil. You need configure Venafi zone to proceed", csrerrprefix)
