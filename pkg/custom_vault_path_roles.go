@@ -550,7 +550,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 
 	entry, err := NewRoleEntry(b, ctx, req, data)
 	if err != nil {
-		return logical.ErrorResponse("New Role failed with: %v", err), err
+		return logical.ErrorResponse("new role failed with: %v", err), err
 	}
 
 	allowedOtherSANs := data.Get("allowed_other_sans").([]string)

@@ -588,6 +588,9 @@ func (role *roleEntry) updateFromVenafi(b *backend, ctx context.Context, storage
 	// grab the zone from Venafi
 	zone, path, err := role.getZoneFromVenafi(b, ctx, &storage)
 	if err != nil {
+		if len(path) > 0 {
+			return nil, fmt.Errorf("zone/policy [%s] had this issue: %v", path, err)
+		}
 		return nil, err
 	}
 
