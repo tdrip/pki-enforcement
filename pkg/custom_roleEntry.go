@@ -505,6 +505,10 @@ func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.
 		return nil, zone, err
 	}
 
+	if len(role.Zone) > 0 {
+		zone = role.Zone
+	}
+
 	connector, err := secret.getConnection(zone)
 	return connector, zone, err
 }
