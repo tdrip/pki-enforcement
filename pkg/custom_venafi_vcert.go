@@ -6,16 +6,29 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+func calculatePath(parent string, rolename string) string {
+
+	if strings.Contains(parent, "<rolename>") {
+		return strings.Replace(parent, "<rolename>", rolename, -1)
+	} else {
+		if strings.HasSuffix(parent, "\\") {
+			return parent + rolename
+		} else {
+			return parent + "\\" + rolename
+		}
+	}
+}
 func (b *backend) getconfig(ctx context.Context, s *logical.Storage, configname string, roleName string) (*venafiSecretEntry, string, error) {
 
 	if len(roleName) == 0 {
-		return nil, "", fmt.Errorf("Lookup of zone failed as role name is missing")
+		return nil, "", fmt.Errorf("lookup of zone failed as role name is missing")
 	}
 
 	config, err := b.getConfigWithSecret(ctx, s, configname)
@@ -38,17 +51,17 @@ func (b *backend) getconfig(ctx context.Context, s *logical.Storage, configname 
 
 	if config.ParentZone != "" {
 		b.Logger().Debug("Using zone from Venafi Config.", "zone", config.ParentZone)
-		zone = config.ParentZone + "\\" + roleName
+		zone = calculatePath(config.ParentZone, roleName)
 	} else {
 		b.Logger().Debug("Using zone from Venafi secret since Policy zone not found.", "zone", secret.Zone)
-		zone = secret.Zone + "\\" + roleName
+		zone = calculatePath(secret.Zone, roleName)
 	}
-
 	return secret, zone, nil
 }
 
 func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, configname string, roleName string) (*vcert.Config, error) {
 	secret, zone, err := b.getconfig(ctx, s, configname, roleName)
+
 	if err != nil {
 		return nil, err
 	}
