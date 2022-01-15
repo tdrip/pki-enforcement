@@ -59,15 +59,6 @@ func (b *backend) getconfig(ctx context.Context, s *logical.Storage, configname 
 	return secret, zone, nil
 }
 
-func (b *backend) getRoleBasedConfig(ctx context.Context, s *logical.Storage, configname string, roleName string) (*vcert.Config, error) {
-	secret, zone, err := b.getconfig(ctx, s, configname, roleName)
-
-	if err != nil {
-		return nil, err
-	}
-	return secret.getVCertConfig(zone, true)
-}
-
 func pp(a interface{}) string {
 	b, err := json.MarshalIndent(a, "", "    ")
 	if err != nil {

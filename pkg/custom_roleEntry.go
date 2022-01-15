@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -513,6 +514,15 @@ func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.
 	return connector, zone, err
 }
 
+func (role *roleEntry) getRoleBasedConfig(b *backend, ctx context.Context, s *logical.Storage) (*vcert.Config, error) {
+	secret, zone, err := b.getconfig(ctx, s, role.CustomEnforcementConfig, role.Name)
+
+	if err != nil {
+		return nil, err
+	}
+	return secret.getVCertConfig(zone, true)
+}
+
 func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storage *logical.Storage) (policy *endpoint.Policy, zone string, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixEnforcement)
 
@@ -534,7 +544,7 @@ func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storag
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-			cfg, err := b.getRoleBasedConfig(ctx, storage, role.CustomEnforcementConfig, role.Name)
+			cfg, err := role.getRoleBasedConfig(b, ctx, storage)
 
 			if err != nil {
 				return nil, zone, err
