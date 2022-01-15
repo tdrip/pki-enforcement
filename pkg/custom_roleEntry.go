@@ -499,34 +499,41 @@ func (role *roleEntry) store(ctx context.Context, storage logical.Storage) error
 	return nil
 }
 
-func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.Storage) (endpoint.Connector, string, error) {
+func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.Storage, includerefreshtoken bool, configonly bool) (endpoint.Connector, *vcert.Config, string, error) {
 
 	secret, zone, err := b.getconfig(ctx, s, role.CustomEnforcementConfig, role.Name)
 	if err != nil {
-		return nil, zone, err
+		return nil, nil, zone, err
 	}
 
 	if len(role.Zone) > 0 {
 		zone = role.Zone
 	}
 
-	connector, err := secret.getConnection(zone)
-	return connector, zone, err
-}
+	//connector, err := secret.getConnection(zone)
+	cfg, err := secret.getVCertConfig(zone, includerefreshtoken)
 
-func (role *roleEntry) getRoleBasedConfig(b *backend, ctx context.Context, s *logical.Storage) (*vcert.Config, error) {
-	secret, zone, err := b.getconfig(ctx, s, role.CustomEnforcementConfig, role.Name)
-
-	if err != nil {
-		return nil, err
+	if configonly {
+		return nil, cfg, zone, err
 	}
-	return secret.getVCertConfig(zone, true)
+
+	if err == nil {
+		client, err := vcert.NewClient(cfg)
+		if err != nil {
+			return nil, cfg, zone, fmt.Errorf("failed to get Venafi issuer client: %s", err)
+		} else {
+			return client, cfg, zone, nil
+		}
+
+	} else {
+		return nil, cfg, zone, err
+	}
 }
 
 func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storage *logical.Storage) (policy *endpoint.Policy, zone string, err error) {
 	log.Printf("%s Creating Venafi client", logPrefixEnforcement)
 
-	cl, zone, err := role.ClientVenafi(b, ctx, storage)
+	cl, _, zone, err := role.ClientVenafi(b, ctx, storage, false, false)
 	if err != nil {
 		return nil, zone, err
 	}
@@ -544,7 +551,7 @@ func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storag
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-			cfg, err := role.getRoleBasedConfig(b, ctx, storage)
+			_, cfg, zone, err := role.ClientVenafi(b, ctx, storage, true, true)
 
 			if err != nil {
 				return nil, zone, err
@@ -558,7 +565,7 @@ func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storag
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, zone, err = role.ClientVenafi(b, ctx, storage)
+				cl, _, zone, err = role.ClientVenafi(b, ctx, storage, false, false)
 				if err != nil {
 					return nil, zone, err
 				}

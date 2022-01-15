@@ -80,21 +80,6 @@ type venafiSecretEntry struct {
 	CloudURL        string `json:"cloud_url"`
 }
 
-func (c venafiSecretEntry) getConnection(zone string) (endpoint.Connector, error) {
-	cfg, err := c.getVCertConfig(zone, false)
-	if err == nil {
-		client, err := vcert.NewClient(cfg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
-		} else {
-			return client, nil
-		}
-
-	} else {
-		return nil, err
-	}
-}
-
 func (c venafiSecretEntry) getVCertConfig(zone string, includeRefreshToken bool) (*vcert.Config, error) {
 	if zone == "" {
 		zone = c.Zone

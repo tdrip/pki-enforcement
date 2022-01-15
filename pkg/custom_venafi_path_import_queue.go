@@ -256,7 +256,7 @@ func (b *backend) processImportToTPP(job Job) string {
 		return err.Error()
 	}
 
-	cl, _, err := role.ClientVenafi(b, job.ctx, job.storage)
+	cl, _, _, err := role.ClientVenafi(b, job.ctx, job.storage, false, false)
 	if err != nil {
 		return fmt.Sprintf("%s Could not create venafi client: %s", msg, err)
 	}
@@ -322,7 +322,7 @@ func (b *backend) processImportToTPP(job Job) string {
 			code := getStatusCode(msg)
 			if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 
-				cfg, err := role.getRoleBasedConfig(b, job.ctx, job.storage)
+				_, cfg, _, err := role.ClientVenafi(b, job.ctx, job.storage, true, true)
 
 				if err != nil {
 					return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
@@ -338,7 +338,7 @@ func (b *backend) processImportToTPP(job Job) string {
 					}
 
 					//everything went fine so get the new client with the new refreshed access token
-					cl, _, err := role.ClientVenafi(b, job.ctx, job.storage)
+					cl, _, _, err := role.ClientVenafi(b, job.ctx, job.storage, false, false)
 					if err != nil {
 						return fmt.Sprintf("%s could not import certificate: %s\n", msg, err)
 					}
