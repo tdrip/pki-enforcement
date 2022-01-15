@@ -506,6 +506,7 @@ func (role *roleEntry) ClientVenafi(b *backend, ctx context.Context, s *logical.
 		return nil, nil, zone, err
 	}
 
+	// we have a specific zone so we do not need the calculated one
 	if len(role.Zone) > 0 {
 		zone = role.Zone
 	}
@@ -593,15 +594,6 @@ func (role *roleEntry) getZoneFromVenafi(b *backend, ctx context.Context, storag
 	}
 
 	return policy, zone, nil
-}
-
-func (b *backend) getPKIRoleEntry(ctx context.Context, storage logical.Storage, roleName string) (entry *roleEntry, err error) {
-	//Update role since it's settings may be changed
-	entry, err = b.getRole(ctx, storage, roleName)
-	if err != nil {
-		return entry, fmt.Errorf("error getting role %v: %s", roleName, err)
-	}
-	return entry, nil
 }
 
 func (role *roleEntry) updateFromVenafi(b *backend, ctx context.Context, storage logical.Storage) (*roleEntry, error) {

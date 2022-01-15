@@ -189,9 +189,9 @@ func (b *backend) controlImportQueue(conf *logical.BackendConfig) {
 		roleName := roles[i]
 
 		//Update role since it's settings may be changed
-		role, err := b.getPKIRoleEntry(ctx, b.storage, roleName)
+		role, err := b.getRole(ctx, b.storage, roleName)
 		if err != nil {
-			log.Printf("%s exiting due to error getting role %v: %s", logPrefixVenafiImport, role, err)
+			log.Printf("%s exiting due to error getting role %v: %s - %v", logPrefixVenafiImport, role, roleName, err)
 			continue
 		}
 
@@ -245,9 +245,9 @@ func (b *backend) processImportToTPP(job Job) string {
 
 	log.Printf("%s %s Trying to import certificate with SN %s", logPrefixVenafiImport, msg, job.entry)
 
-	role, err := b.getPKIRoleEntry(job.ctx, *job.storage, job.roleName)
+	role, err := b.getRole(job.ctx, *job.storage, job.roleName)
 	if err != nil {
-		log.Printf("%s Error getting role %v: %s\n Exiting.", logPrefixVenafiImport, role, err)
+		log.Printf("%s Error getting role %v: %s - %v\n Exiting.", logPrefixVenafiImport, role, job.roleName, err)
 		return err.Error()
 	}
 

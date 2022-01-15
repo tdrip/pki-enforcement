@@ -42,14 +42,16 @@ func (b *backend) pathReadEnforcementSync(ctx context.Context, req *logical.Requ
 
 	for _, roleName := range roles {
 		log.Println("looking role ", roleName)
-		//	Read previous role parameters
-		pkiRoleEntry, err := b.getPKIRoleEntry(ctx, req.Storage, roleName)
+
+		//Update role since it's settings may be changed
+		pkiRoleEntry, err := b.getRole(ctx, req.Storage, roleName)
 		if err != nil {
-			log.Printf("%s", err)
+			log.Printf("error getting role %s: %v", roleName, err)
 			continue
 		}
 
 		if pkiRoleEntry == nil {
+			log.Printf("role %s was nil", roleName)
 			continue
 		}
 
@@ -111,9 +113,9 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 	for _, roleName := range roles {
 
 		//	Read previous role parameters
-		pkiRoleEntry, err := b.getPKIRoleEntry(ctx, b.storage, roleName)
+		pkiRoleEntry, err := b.getRole(ctx, b.storage, roleName)
 		if err != nil {
-			return fmt.Errorf("%s", err)
+			fmt.Errorf("error getting role %s: %v", roleName, err)
 		}
 
 		if pkiRoleEntry == nil {
@@ -144,9 +146,6 @@ func (b *backend) syncEnforcementAndRoleDefaults(conf *logical.BackendConfig) (e
 
 		// we don't need to synchronise defaults
 		// just grab the new fields
-		//pkiRoleEntry.synchronizeRoleDefaults(b, ctx, b.storage, roleName)
-
-		// we do not have a specific zone so we can calculate it
 		updatedEntry, err := pkiRoleEntry.updateFromVenafi(b, ctx, b.storage)
 		if err != nil {
 			return err
